@@ -14,4 +14,5 @@ Comments
 -pid
 -timestamp
 
-The state of all of this has to be replicated across all servers.
+The state of all of this has to be replicated across all servers. Each server has to agree on all of these state variables.
+
