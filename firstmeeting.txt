@@ -13,3 +13,5 @@ Comments
 -id 
 -pid
 -timestamp
+
+The state of all of this has to be replicated across all servers.
