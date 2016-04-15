@@ -1,0 +1,15 @@
+Meeting 1 Notes
+
+Users 
+- Location
+- Id
+
+Pictures
+- Id
+- Uid
+- timestamp
+
+Comments
+-id 
+-pid
+-timestamp
