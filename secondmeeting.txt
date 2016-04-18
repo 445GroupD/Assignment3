@@ -1,0 +1,43 @@
+--------------------------------
+Packet
+--------------------------------
+|ServerId | Type  | LeaderId  | Term  | MemberCount|
+| 4 bytes |4 bytes| 4 bytes   | long  |   long     |
+
+---------------------------------
+Classes
+---------------------------------
+Server Object
+  - int leaderId
+  - MulticastSocket socket
+  - ServerSocket serverSocket
+  - long term
+  - int id
+  
+Client Object
+  - DatagramSocket socket
+  - List<DatagramSocket> packets
+  - int uId
+  - String gps
+  
+------------------------------------
+Tables
+------------------------------------
+User
+  -user id
+Picture
+  -picture id
+Comment
+  -comment id
+Log
+  -server id
+Pending (not replicated)
+  -data
+  
+------------------------------------
+Meetings
+------------------------------------
+Mon/Fri
+  - 1-4pm
+Tues/Thurs
+  - 7-9pm
