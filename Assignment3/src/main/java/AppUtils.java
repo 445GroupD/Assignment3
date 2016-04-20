@@ -9,13 +9,14 @@ public class AppUtils
 
     public static long bytesToLong(byte[] bytes)
     {
+
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         return buffer.getLong();
     }
 
     public static byte[] longToBytes(long x)
     {
-        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
         buffer.putLong(x);
         return buffer.array();
     }
