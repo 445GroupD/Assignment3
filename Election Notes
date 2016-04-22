@@ -25,3 +25,6 @@ Follower receives a RequestVote packet
     - update leader id
   b) Term Number of Heartbeat < current term
     - ignore heartbeat
+    
+    ***Things to consider***
+    1) What happens if a client sends to a candidate during election
