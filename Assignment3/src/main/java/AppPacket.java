@@ -17,6 +17,8 @@ public class AppPacket
 
     private final int seq;
 
+    private final int logIndex;
+
     //Receiver
     public AppPacket(byte[] data)
     {
@@ -26,18 +28,20 @@ public class AppPacket
         this.term = AppUtils.bytesToLong(ArrayUtils.subarray(data, 12, 20));
         this.member = AppUtils.bytesToLong(ArrayUtils.subarray(data, 20, 28));
         this.seq = AppUtils.bytesToInt(ArrayUtils.subarray(data, 28, 32));
-        this.data = ArrayUtils.subarray(data, 32, data.length);
+        this.logIndex = AppUtils.bytesToInt(ArrayUtils.subarray(data, 32, 36));
+        this.data = ArrayUtils.subarray(data, 36, data.length);
         headerSize = 0;
     }
 
     //Sender
-    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int seq, String data)
+    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int seq, int logIndex, String data)
     {
         this.serverId = serverId;
         this.type = type;
         this.leaderId = leaderId;
         this.term = term;
         this.member = member;
+        this.logIndex = logIndex;
         this.seq = seq;
 
         headerSize = Integer.BYTES + Integer.BYTES + Integer.BYTES + Long.BYTES + Long.BYTES;
@@ -72,6 +76,7 @@ public class AppPacket
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(term));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(member));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(seq));
+        datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(logIndex));
         datagramArray = ArrayUtils.addAll(datagramArray, data);
         return new DatagramPacket(datagramArray, datagramArray.length, address, port);
     }
@@ -109,6 +114,11 @@ public class AppPacket
     public int getSeq()
     {
         return seq;
+    }
+
+    public int getLogIndex()
+    {
+        return logIndex;
     }
 
     public enum PacketType
@@ -154,6 +164,14 @@ public class AppPacket
                     }
                 },
         ACK(5)
+                {
+                    @Override
+                    public void parseData(byte[] data)
+                    {
+
+                    }
+                },
+        COMMIT(6)
                 {
                     @Override
                     public void parseData(byte[] data)

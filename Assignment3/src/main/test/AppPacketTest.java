@@ -20,7 +20,7 @@ public class AppPacketTest
     @org.junit.Test
     public void testPacket() throws Exception
     {
-        AppPacket testPacket1 = new AppPacket(1, AppPacket.PacketType.PICTURE, 5, 23, 5, 22, "DATA");
+        AppPacket testPacket1 = new AppPacket(1, AppPacket.PacketType.PICTURE, 5, 23, 5, 22, 55,"DATA");
         DatagramPacket testDatagram = testPacket1.getDatagram(InetAddress.getByName("wolf.cs.oswego.edu"), 4445);
         AppPacket testPacket2 = new AppPacket(testDatagram.getData());
 
@@ -31,6 +31,7 @@ public class AppPacketTest
         assertEquals(testPacket1.getServerId(),testPacket2.getServerId());
         assertEquals(testPacket1.getTerm(),testPacket2.getTerm());
         assertEquals(testPacket1.getType(),testPacket2.getType());
+        assertEquals(testPacket1.getLogIndex(),testPacket2.getLogIndex());
     }
 
     @org.junit.Test

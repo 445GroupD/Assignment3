@@ -1,8 +1,13 @@
+import javafx.util.Pair;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 public class MulticastServer
 {
@@ -11,14 +16,21 @@ public class MulticastServer
     private final MulticastSocket multicastSocket;
     private final InetAddress group;
     private final int serverId;
-    private final int leaderId;
+    private int leaderId;
+    private int termNum;
+    private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
+    private final Map<String, AppPacket> incominglocalStorage = new HashMap<String, AppPacket>();
+    private final Map<Integer, Pair<AppPacket, Integer>> outgoinglocalStorage = new HashMap<Integer, Pair<AppPacket, Integer>>();
+    private int majority;
 
     public MulticastServer(String serverId, String leaderId) throws IOException
     {
         System.out.println("constructor");
         multicastSocket = new MulticastSocket(4446);
+        multicastSocket.setLoopbackMode(false);
         group = InetAddress.getByName("239.255.255.255");
         this.leaderId = Integer.valueOf(leaderId);
+        this.termNum = 0;
         multicastSocket.joinGroup(group);
         if (serverId == null)
         {
@@ -46,12 +58,13 @@ public class MulticastServer
             {
                 System.out.println("leader");
                 String j = "hello";
-                AppPacket test = new AppPacket(serverId, AppPacket.PacketType.PICTURE, leaderId, 45, 3, 12, "hello");
+                AppPacket test = new AppPacket(serverId, AppPacket.PacketType.PICTURE, leaderId, 45, 3, 12, 55, "hello");
                 try
                 {
                     System.out.println("before send");
                     multicastSocket.send(test.getDatagram(group, PORT));
-                    System.out.println("sending data: " + new String(test.getData(),"UTF-8"));
+                    outgoinglocalStorage.put(test.getSeq(), new Pair(test, 0));
+                    System.out.println("sending data: " + new String(test.getData(), "UTF-8"));
                     System.out.println("just sent");
                 }
                 catch (IOException e)
@@ -61,6 +74,12 @@ public class MulticastServer
             }
             sentinel = false;
         }
+    }
+
+    public int getMajority()
+    {
+        majority = 2;
+        return majority;
     }
 
     private class MulticastServerReceiver implements Runnable
@@ -94,34 +113,113 @@ public class MulticastServer
                 boolean sentinel = true;
                 while (sentinel)
                 {
-                    // NOT THE LEADER
-                    if (serverId != leaderId)
+                    packet = new DatagramPacket(buf, buf.length, group, port);
+                    multicastSocket.receive(packet);
+                    receivedPacket = new AppPacket(packet.getData());
+                    System.out.println("receivedPacket = " + receivedPacket.getServerId());
+                    System.out.println("serverId " + serverId);
+                    if (receivedPacket.getServerId() != serverId)
                     {
-                        packet = new DatagramPacket(buf, buf.length, group, port);
-                        multicastSocket.receive(packet);
-                        receivedPacket = new AppPacket(packet.getData());
-                        System.out.println("leaderId = " + leaderId);
-                        System.out.println("receivedPacket.getServerId() = " + receivedPacket.getServerId());
-                        if (receivedPacket.getServerId() == leaderId)
+                        System.out.println("just received");
+                        // NOT THE LEADER
+                        if (serverId != leaderId)
                         {
-                            System.out.println("size: "+receivedPacket.getData().length);
-                            System.out.println("Received: " + new String(receivedPacket.getData(),"UTF-8"));
-                            AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), "");
+                            System.out.println("Not LEADER");
+                            if (receivedPacket.getServerId() == leaderId)
+                            {
+                                System.out.println("size: " + receivedPacket.getData().length);
+                                System.out.println("Received: " + new String(receivedPacket.getData(), "UTF-8"));
 
-                            multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                                switch (receivedPacket.getType())
+                                {
+                                    case ACK:
+                                    {
+                                        System.out.println("SHOULDNT SEE THIS");
+                                    }
+                                    case COMMENT:
+                                    {
+                                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
+                                        incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
+                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
+
+                                    }
+                                    case COMMIT:
+                                    {
+                                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
+                                        AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
+                                        fakeDB.put(local.getLogIndex(), new String(local.getData()));
+                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                                    }
+                                    case PICTURE:
+                                    {
+                                    }
+                                    case GPS:
+                                    {
+                                    }
+                                    case VOTE:
+                                    {
+                                    }
+                                    case HEARTBEAT:
+                                    {
+                                    }
+                                }
+                            }
+                        }
+                        // IS THE LEADER
+                        else
+                        {
+                            System.out.println("is leader");
+                            AppPacket ackPacket = new AppPacket(packet.getData());
+                            switch (ackPacket.getType())
+                            {
+                                case ACK:
+                                {
+                                    Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
+                                    Integer count = ackedPacket.getValue();
+                                    count++;
+                                    System.out.println("count " + count);
+
+                                    int majority = (getMajority() / 2) + 1;
+                                    System.out.println("majority = " + majority);
+                                    if (count >= majority)
+                                    {
+                                        System.out.println("committing");
+                                        fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
+                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, 3, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "");
+                                        if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
+                                        {
+                                            multicastSocket.send(commitPacket.getDatagram(group, PORT));
+                                        }
+                                        else
+                                        {
+                                            System.out.println("wrong term cant commit");
+                                        }
+
+                                    }
+                                }
+                                case COMMENT:
+                                {
+
+
+                                }
+                                case COMMIT:
+                                {
+                                }
+                                case PICTURE:
+                                {
+                                }
+                                case GPS:
+                                {
+                                }
+                                case VOTE:
+                                {
+                                }
+                                case HEARTBEAT:
+                                {
+                                }
+                            }
                         }
                     }
-                    // IS THE LEADER
-                    else
-                    {
-                        packet = new DatagramPacket(buf, buf.length, group, port);
-                        multicastSocket.receive(packet);
-
-                        AppPacket ackPacket = new AppPacket(packet.getData());
-
-                        System.out.println(ackPacket.getSeq());
-                    }
-
 
                 }
             }
