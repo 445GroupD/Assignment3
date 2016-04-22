@@ -269,7 +269,7 @@ public class MulticastServer
                     Integer count = ackedPacket.getValue();
 
                     int majority = (getMajority() / 2) + 1;
-                    if (count >= majority)
+                    if (count >= majority && fakeDB.get(ackedPacket.getKey().getLogIndex()) == null)
                     {
                         fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
                         AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
