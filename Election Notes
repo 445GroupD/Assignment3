@@ -1,0 +1,30 @@
+Election Process
+1) Follower stops receving heartbeats and times out
+2) Follower becomes a candidate, increments its term number, and restarts its election timeout counter
+3) New Candidate votes for itself and sends out RequestVote packets
+4) Candidate waits for votes
+  a) Receives a valid vote packet
+    - increments vote count
+  b) Receives a majority
+    - claims itself as leader and starts sending out heartbeats
+  c) Receives a Heartbeat or RequestVote packet from a server with a term >= current term
+    - returns to follower state
+  d) Election Timeout occurs
+    - restart election process
+    
+Follower receives a RequestVote packet
+1) Check term number of packet
+  a) RequestVote packet's term number <= current term 
+    - ignore packet
+  b) RequestVote packet's term number > current term
+    - send a Vote packet
+    - set current term = term number of RequestVote packet
+2) Waits for heartbeats
+  a) Term Number of Heartbeat >= current term
+    - update current term
+    - update leader id
+  b) Term Number of Heartbeat < current term
+    - ignore heartbeat
+    
+    ***Things to consider***
+    1) What happens if a client sends to a candidate during election
