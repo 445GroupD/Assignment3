@@ -6,10 +6,8 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
 
 public class MulticastServer
 {
@@ -24,11 +22,11 @@ public class MulticastServer
     private final Map<String, AppPacket> incominglocalStorage = new HashMap<String, AppPacket>();
     private final Map<Integer, Pair<AppPacket, Integer>> outgoinglocalStorage = new HashMap<Integer, Pair<AppPacket, Integer>>();
     private ServerState serverState = ServerState.FOLLOWER;
-    private int majority;
+    private int majority = 2;
     private String dataToSend;
     private int seqNum = 0;
     private int logIndex = 0;
-    private long groupCount = 4;
+    private long groupCount = 5;
 
     public MulticastServer(String serverId, String leaderId) throws IOException
     {
@@ -118,7 +116,7 @@ public class MulticastServer
 
     public int getMajority()
     {
-        return majority;
+        return (int)Math.floor(groupCount / 2);
     }
 
     private class MulticastServerSender implements Runnable
@@ -230,20 +228,23 @@ public class MulticastServer
                     case ACK:
                     {
                         System.out.println("SHOULDNT SEE THIS");
+                        break;
                     }
                     case COMMENT:
                     {
-                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
+                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId,termNum ,groupCount, receivedPacket.getSeq(), receivedPacket.getLogIndex(), "");
                         incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
                         System.out.println("acking");
+                        break;
 
                     }
                     case COMMIT:
                     {
-                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
                         AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
                         fakeDB.put(local.getLogIndex(), new String(local.getData()));
+                        System.out.println("commit");
+                        break;
                     }
                 }
             }
@@ -268,11 +269,10 @@ public class MulticastServer
                     ackedPacket = outgoinglocalStorage.get(receivedPacket.getSeq());
                     Integer count = ackedPacket.getValue();
 
-                    int majority = (getMajority() / 2) + 1;
-                    if (count >= majority && fakeDB.get(ackedPacket.getKey().getLogIndex()) == null)
+                    if (count >= getMajority() && fakeDB.get(ackedPacket.getKey().getLogIndex()) == null)
                     {
                         fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
-                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
+                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "sdfsdf");
                         if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
                         {
                             multicastSocket.send(commitPacket.getDatagram(group, PORT));
@@ -283,6 +283,7 @@ public class MulticastServer
                         }
                         logIndex++;
                     }
+                    break;
                 }
             }
         }
