@@ -20,3 +20,8 @@ Follower receives a RequestVote packet
     - send a Vote packet
     - set current term = term number of RequestVote packet
 2) Waits for heartbeats
+  a) Term Number of Heartbeat >= current term
+    - update current term
+    - update leader id
+  b) Term Number of Heartbeat < current term
+    - ignore heartbeat
