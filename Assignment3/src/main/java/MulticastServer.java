@@ -1,6 +1,8 @@
 import javafx.util.Pair;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -21,65 +23,152 @@ public class MulticastServer
     private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
     private final Map<String, AppPacket> incominglocalStorage = new HashMap<String, AppPacket>();
     private final Map<Integer, Pair<AppPacket, Integer>> outgoinglocalStorage = new HashMap<Integer, Pair<AppPacket, Integer>>();
+    private ServerState serverState = ServerState.FOLLOWER;
     private int majority;
+    private String dataToSend;
+    private int seqNum = 0;
+    private int logIndex = 0;
+    private long groupCount = 4;
 
     public MulticastServer(String serverId, String leaderId) throws IOException
     {
-        System.out.println("constructor");
-        multicastSocket = new MulticastSocket(4446);
-        multicastSocket.setLoopbackMode(false);
-        group = InetAddress.getByName("239.255.255.255");
+        this.serverId = Integer.valueOf(serverId);
         this.leaderId = Integer.valueOf(leaderId);
         this.termNum = 0;
-        multicastSocket.joinGroup(group);
-        if (serverId == null)
+        System.out.println("serverId = " + serverId);
+        System.out.println("leaderId = " + leaderId);
+        if (this.serverId == this.leaderId)
         {
-            throw new NullPointerException("ServerId was null");
-        }
-        else
-        {
-            this.serverId = Integer.valueOf(serverId);
+            System.out.println("IS LEADER");
+            serverState = ServerState.LEADER;
         }
 
-        System.out.println("starting server");
-        startServer();
+        // Create Socket
+        multicastSocket = new MulticastSocket(PORT);
+        group = InetAddress.getByName(GROUP);
+        multicastSocket.joinGroup(group);
+
+        startSendingThread();
+        startReceivingThread();
+        startDebugConsole();
     }
 
-    public void startServer()
+
+    private void startSendingThread()
     {
-        System.out.println("starting");
-        Thread receive = new Thread(new MulticastServerReceiver(multicastSocket, group, PORT, serverId));
-        receive.start();
-        boolean sentinel = true;
-        while (sentinel)
+
+        Thread outgoing = new Thread(new MulticastServerSender(multicastSocket, group, PORT, serverId));
+        outgoing.start();
+        System.out.println("started outgoing thread");
+    }
+
+    private void startReceivingThread()
+    {
+
+        Thread incoming = new Thread(new MulticastServerReceiver(multicastSocket, group, PORT, serverId));
+        incoming.start();
+        System.out.println("started incoming thread");
+    }
+
+    private void startDebugConsole()
+    {
+        try
         {
-            System.out.println("entered loop");
-            if (serverId == leaderId)
+            BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+            while (true)
             {
-                System.out.println("leader");
-                String j = "hello";
-                AppPacket test = new AppPacket(serverId, AppPacket.PacketType.COMMENT, leaderId, termNum, 3, 12, 55, "hello");
-                try
+                System.out.println("What do you want to see");
+                String[] other = in.readLine().split(" ");
+
+                if (other[0].equals("status"))
                 {
-                    System.out.println("before send");
-                    multicastSocket.send(test.getDatagram(group, PORT));
-                    outgoinglocalStorage.put(test.getSeq(), new Pair(test, 0));
-                    System.out.println("sending data: " + new String(test.getData(), "UTF-8"));
-                    System.out.println("just sent");
+                    debugStatus();
                 }
-                catch (IOException e)
+                else if (other[0].equals("send"))
                 {
-                    e.printStackTrace();
+                    debugSend(other[1]);
                 }
             }
-            sentinel = false;
         }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    private void debugSend(String debugData)
+    {
+        dataToSend = debugData;
+    }
+
+    private void debugStatus()
+    {
+        System.out.println("serverId = " + serverId);
+        System.out.println("leaderId = " + leaderId);
+        System.out.println("termNum = " + termNum);
+        System.out.println("Contents of FakeDB");
+        System.out.println("-------------------");
+        for (Map.Entry current : fakeDB.entrySet())
+        {
+            System.out.print("current.getKey() = " + current.getKey());
+            System.out.println(" current.getValue() = " + current.getValue());
+        }
+        System.out.println("-------------------");
     }
 
     public int getMajority()
     {
-        majority = 2;
         return majority;
+    }
+
+    private class MulticastServerSender implements Runnable
+    {
+        private final MulticastSocket multicastSocket;
+        private final InetAddress group;
+        private final int port;
+        private final int serverId;
+
+        public MulticastServerSender(MulticastSocket multicastSocket, InetAddress group, int port, int serverId)
+        {
+            this.multicastSocket = multicastSocket;
+            this.group = group;
+            this.port = port;
+            this.serverId = serverId;
+        }
+
+        @Override
+        public void run()
+        {
+            while (true)
+            {
+                System.out.println("serverState = " + serverState);
+                System.out.println("dataToSend = " + dataToSend);
+                if (serverState.equals(ServerState.LEADER) && dataToSend != null)
+                {
+                    try
+                    {
+                        System.out.println("sending: " + dataToSend);
+                        AppPacket test = new AppPacket(serverId, AppPacket.PacketType.COMMENT, leaderId, termNum, groupCount, seqNum, logIndex, dataToSend);
+
+                        multicastSocket.send(test.getDatagram(group, port));
+                        outgoinglocalStorage.put(test.getSeq(), new Pair(test, logIndex));
+                        dataToSend = null;
+                    }
+                    catch (IOException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+                try
+                {
+                    Thread.sleep(3000);
+                }
+                catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     private class MulticastServerReceiver implements Runnable
@@ -149,7 +238,7 @@ public class MulticastServer
                                         AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
                                         AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
                                         fakeDB.put(local.getLogIndex(), new String(local.getData()));
-                                        for(Map.Entry<Integer, String> entry :fakeDB.entrySet())
+                                        for (Map.Entry<Integer, String> entry : fakeDB.entrySet())
                                         {
                                             System.out.println("entry = " + entry);
                                         }
@@ -174,23 +263,19 @@ public class MulticastServer
                         // IS THE LEADER
                         else
                         {
-                            System.out.println("is leader");
                             AppPacket ackPacket = new AppPacket(packet.getData());
                             switch (ackPacket.getType())
                             {
                                 case ACK:
                                 {
                                     Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
-                                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(),new Pair<AppPacket, Integer>(ackedPacket.getKey(),ackedPacket.getValue() + 1));
+                                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(), new Pair<AppPacket, Integer>(ackedPacket.getKey(), ackedPacket.getValue() + 1));
                                     ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
                                     Integer count = ackedPacket.getValue();
-                                    System.out.println("count " + count);
 
                                     int majority = (getMajority() / 2) + 1;
-                                    System.out.println("majority = " + majority);
                                     if (count >= majority)
                                     {
-                                        System.out.println("committing");
                                         fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
                                         AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, 3, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
                                         if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
@@ -201,12 +286,10 @@ public class MulticastServer
                                         {
                                             System.out.println("wrong term cant commit");
                                         }
-
                                     }
                                 }
                                 case COMMENT:
                                 {
-
 
                                 }
                                 case COMMIT:
@@ -235,5 +318,12 @@ public class MulticastServer
                 e.printStackTrace();
             }
         }
+    }
+
+    public enum ServerState
+    {
+        LEADER(),
+        CANIDATE(),
+        FOLLOWER();
     }
 }
