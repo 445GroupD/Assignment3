@@ -58,7 +58,7 @@ public class MulticastServer
             {
                 System.out.println("leader");
                 String j = "hello";
-                AppPacket test = new AppPacket(serverId, AppPacket.PacketType.PICTURE, leaderId, 45, 3, 12, 55, "hello");
+                AppPacket test = new AppPacket(serverId, AppPacket.PacketType.COMMENT, leaderId, termNum, 3, 12, 55, "hello");
                 try
                 {
                     System.out.println("before send");
@@ -141,6 +141,7 @@ public class MulticastServer
                                         AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
                                         incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
                                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                                        System.out.println("acking");
 
                                     }
                                     case COMMIT:
@@ -148,7 +149,12 @@ public class MulticastServer
                                         AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
                                         AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
                                         fakeDB.put(local.getLogIndex(), new String(local.getData()));
-                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                                        for(Map.Entry<Integer, String> entry :fakeDB.entrySet())
+                                        {
+                                            System.out.println("entry = " + entry);
+                                        }
+//                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                                        System.out.println("acking");
                                     }
                                     case PICTURE:
                                     {
@@ -175,8 +181,9 @@ public class MulticastServer
                                 case ACK:
                                 {
                                     Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
+                                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(),new Pair<AppPacket, Integer>(ackedPacket.getKey(),ackedPacket.getValue() + 1));
+                                    ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
                                     Integer count = ackedPacket.getValue();
-                                    count++;
                                     System.out.println("count " + count);
 
                                     int majority = (getMajority() / 2) + 1;
@@ -185,7 +192,7 @@ public class MulticastServer
                                     {
                                         System.out.println("committing");
                                         fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
-                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, 3, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "");
+                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, 3, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
                                         if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
                                         {
                                             multicastSocket.send(commitPacket.getDatagram(group, PORT));
