@@ -141,8 +141,6 @@ public class MulticastServer
         {
             while (true)
             {
-                System.out.println("serverState = " + serverState);
-                System.out.println("dataToSend = " + dataToSend);
                 if (serverState.equals(ServerState.LEADER) && dataToSend != null)
                 {
                     try
@@ -161,7 +159,7 @@ public class MulticastServer
                 }
                 try
                 {
-                    Thread.sleep(3000);
+                    Thread.sleep(1000);
                 }
                 catch (InterruptedException e)
                 {
@@ -191,34 +189,25 @@ public class MulticastServer
         {
             try
             {
-                System.out.println("started");
                 DatagramPacket packet;
                 AppPacket receivedPacket;
-
-                // needs to change
-                byte[] buf = new byte[1500];
+                byte[] buf;
 
                 // Need to create some way to end the program
                 boolean sentinel = true;
                 while (sentinel)
                 {
+                    buf = new byte[1500];
                     packet = new DatagramPacket(buf, buf.length, group, port);
                     multicastSocket.receive(packet);
                     receivedPacket = new AppPacket(packet.getData());
-                    System.out.println("receivedPacket = " + receivedPacket.getServerId());
-                    System.out.println("serverId " + serverId);
                     if (receivedPacket.getServerId() != serverId)
                     {
-                        System.out.println("just received");
                         // NOT THE LEADER
                         if (serverId != leaderId)
                         {
-                            System.out.println("Not LEADER");
                             if (receivedPacket.getServerId() == leaderId)
                             {
-                                System.out.println("size: " + receivedPacket.getData().length);
-                                System.out.println("Received: " + new String(receivedPacket.getData(), "UTF-8"));
-
                                 switch (receivedPacket.getType())
                                 {
                                     case ACK:
@@ -277,7 +266,7 @@ public class MulticastServer
                                     if (count >= majority)
                                     {
                                         fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
-                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, 3, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
+                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
                                         if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
                                         {
                                             multicastSocket.send(commitPacket.getDatagram(group, PORT));
@@ -286,6 +275,7 @@ public class MulticastServer
                                         {
                                             System.out.println("wrong term cant commit");
                                         }
+                                        logIndex++;
                                     }
                                 }
                                 case COMMENT:
