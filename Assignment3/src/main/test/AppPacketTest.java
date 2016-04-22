@@ -1,5 +1,3 @@
-import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
-
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 
@@ -27,7 +25,7 @@ public class AppPacketTest
         assertEquals(new String(testPacket1.getData()),new String(testPacket2.getData()));
         assertEquals(testPacket1.getLeaderId(),testPacket2.getLeaderId());
         assertEquals(testPacket1.getMember(),testPacket2.getMember());
-        assertEquals(testPacket1.getSeq(),testPacket2.getSeq());
+        assertEquals(testPacket1.getSequenceNumber(),testPacket2.getSequenceNumber());
         assertEquals(testPacket1.getServerId(),testPacket2.getServerId());
         assertEquals(testPacket1.getTerm(),testPacket2.getTerm());
         assertEquals(testPacket1.getType(),testPacket2.getType());

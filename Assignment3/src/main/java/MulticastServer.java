@@ -1,5 +1,3 @@
-import javafx.util.Pair;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,6 +6,7 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MulticastServer
 {
@@ -19,13 +18,10 @@ public class MulticastServer
     private int leaderId;
     private int termNum;
     private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
-    private final Map<String, AppPacket> incominglocalStorage = new HashMap<String, AppPacket>();
-    private final Map<Integer, Pair<AppPacket, Integer>> outgoinglocalStorage = new HashMap<Integer, Pair<AppPacket, Integer>>();
+    private final Map<String, AppPacket> incominglocalStorage = new ConcurrentHashMap<String, AppPacket>();
+    private final Map<Integer, LeaderPacket> outgoinglocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
     private ServerState serverState = ServerState.FOLLOWER;
-    private int majority = 2;
     private String dataToSend;
-    private int seqNum = 0;
-    private int logIndex = 0;
     private long groupCount = 5;
 
     public MulticastServer(String serverId, String leaderId) throws IOException
@@ -84,7 +80,8 @@ public class MulticastServer
                 }
                 else if (other[0].equals("send"))
                 {
-                    debugSend(other[1]);
+                    System.out.println("Data to send: ");
+                    debugSend(in.readLine());
                 }
             }
         }
@@ -101,17 +98,18 @@ public class MulticastServer
 
     private void debugStatus()
     {
-        System.out.println("serverId = " + serverId);
-        System.out.println("leaderId = " + leaderId);
-        System.out.println("termNum = " + termNum);
-        System.out.println("Contents of FakeDB");
-        System.out.println("-------------------");
+        System.out.println("\n----------------------------- START SERVER STATUS ---------------------------\n");
+        System.out.println("\tid = " + serverId);
+        System.out.println("\tleaderId = " + leaderId);
+        System.out.println("\ttermNum = " + termNum);
+        System.out.println("\tContents of FakeDB");
+
+        System.out.println("\n\t------------------- Server DB Logs -------------------");
         for (Map.Entry current : fakeDB.entrySet())
         {
-            System.out.print("current.getKey() = " + current.getKey());
-            System.out.println(" current.getValue() = " + current.getValue());
+            System.out.printf("\n\tLog Index: %s | Log: %s", current.getKey(), current.getValue());
         }
-        System.out.println("-------------------");
+        System.out.println("\n----------------------------- END SERVER STATUS ---------------------------\n");
     }
 
     public int getMajority()
@@ -143,11 +141,11 @@ public class MulticastServer
                 {
                     try
                     {
-                        System.out.println("sending: " + dataToSend);
-                        AppPacket test = new AppPacket(serverId, AppPacket.PacketType.COMMENT, leaderId, termNum, groupCount, seqNum, logIndex, dataToSend);
+                        AppPacket outgoingPacket = new AppPacket(serverId, AppPacket.PacketType.COMMENT, leaderId, termNum, -1, LeaderPacket.getNextSequenceNumber(), -1, dataToSend);
+                        outgoinglocalStorage.put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
 
-                        multicastSocket.send(test.getDatagram(group, port));
-                        outgoinglocalStorage.put(test.getSeq(), new Pair(test, logIndex));
+                        consoleMessage("\nSending " + outgoingPacket.toString());
+                        multicastSocket.send(outgoingPacket.getDatagram(group, port));
                         dataToSend = null;
                     }
                     catch (IOException e)
@@ -164,6 +162,14 @@ public class MulticastServer
                     e.printStackTrace();
                 }
             }
+        }
+
+        private void consoleMessage(String s) {
+            System.out.println(serverId + " m> " + s);
+        }
+
+        private void consoleError(String s) {
+            System.out.println(serverId + " e> " + s);
         }
     }
 
@@ -216,6 +222,14 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Used for servers who are receiving packets from the leader.
+     * This is a follower of the leader.
+     *
+     * It receives commit requests and commands from leading servers, in that order,
+     * acks to confirm its agreement that the sender is the leader of the group,
+     * and if so, it replicates the leader's incoming log to its own db when it receives the commit command from leader.
+     */
     private void followerParse(AppPacket receivedPacket)
     {
         try
@@ -226,26 +240,22 @@ public class MulticastServer
                 switch (receivedPacket.getType())
                 {
                     case ACK:
-                    {
                         System.out.println("SHOULDNT SEE THIS");
                         break;
-                    }
                     case COMMENT:
-                    {
-                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId,termNum ,groupCount, receivedPacket.getSeq(), receivedPacket.getLogIndex(), "");
-                        incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
+                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId,termNum ,groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
+                        incominglocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
-                        System.out.println("acking");
+                        System.out.println("Acking commit request confirmation for " + receivedPacket.toString());
                         break;
-
-                    }
                     case COMMIT:
-                    {
-                        AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
-                        fakeDB.put(local.getLogIndex(), new String(local.getData()));
-                        System.out.println("commit");
+                        AppPacket localPacketFromIncomingStorage = incominglocalStorage.get(getIncomingStorageKey(receivedPacket));
+                        String receivedLogIndex = receivedPacket.getReadableData();
+                        String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
+
+                        fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
+                        System.out.println("Committed Packet: #%s" + localPacketFromIncomingStorage.toString());
                         break;
-                    }
                 }
             }
         }
@@ -255,7 +265,15 @@ public class MulticastServer
         }
     }
 
+    private String getIncomingStorageKey(AppPacket receivedPacket) {
+        return receivedPacket.getLeaderId() + " " + receivedPacket.getSequenceNumber() + " " + receivedPacket.getTerm();
+    }
 
+
+    /**
+     *
+     * @param receivedPacket
+     */
     private void leaderParse(AppPacket receivedPacket)
     {
         try
@@ -263,28 +281,29 @@ public class MulticastServer
             switch (receivedPacket.getType())
             {
                 case ACK:
-                {
-                    Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(receivedPacket.getSeq());
-                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(), new Pair<AppPacket, Integer>(ackedPacket.getKey(), ackedPacket.getValue() + 1));
-                    ackedPacket = outgoinglocalStorage.get(receivedPacket.getSeq());
-                    Integer count = ackedPacket.getValue();
+                    LeaderPacket ackedLeaderPacket = outgoinglocalStorage.get(receivedPacket.getSequenceNumber());
 
-                    if (count >= getMajority() && fakeDB.get(ackedPacket.getKey().getLogIndex()) == null)
+                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), fakeDB);
+                    //make sure the log index returned from committing is valid
+                    if (committedLogIndex > -1)
                     {
-                        fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
-                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "sdfsdf");
-                        if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
+                        //all is well. The log was committed to this leader's persistent db at the committedLogIndex.
+                        //send the commit command to all followers if necessary.
+
+                        //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
+                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex, committedLogIndex + "");
+                        if (termNum == ackedLeaderPacket.getTerm())
                         {
+                            //send the commit command to all followers of this leader
                             multicastSocket.send(commitPacket.getDatagram(group, PORT));
                         }
                         else
                         {
-                            System.out.println("wrong term cant commit");
+                            //this leader is on the wrong term and thus may or may not be the leader anymore
+                            System.out.println("Leader is in the wrong term. Cant commit");
                         }
-                        logIndex++;
                     }
                     break;
-                }
             }
         }
         catch (IOException e)
