@@ -201,112 +201,94 @@ public class MulticastServer
                     packet = new DatagramPacket(buf, buf.length, group, port);
                     multicastSocket.receive(packet);
                     receivedPacket = new AppPacket(packet.getData());
-                    if (receivedPacket.getServerId() != serverId)
+                    if (serverState.equals(ServerState.LEADER))
                     {
-                        // NOT THE LEADER
-                        if (serverId != leaderId)
-                        {
-                            if (receivedPacket.getServerId() == leaderId)
-                            {
-                                switch (receivedPacket.getType())
-                                {
-                                    case ACK:
-                                    {
-                                        System.out.println("SHOULDNT SEE THIS");
-                                    }
-                                    case COMMENT:
-                                    {
-                                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
-                                        incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
-                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
-                                        System.out.println("acking");
-
-                                    }
-                                    case COMMIT:
-                                    {
-                                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
-                                        AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
-                                        fakeDB.put(local.getLogIndex(), new String(local.getData()));
-                                        for (Map.Entry<Integer, String> entry : fakeDB.entrySet())
-                                        {
-                                            System.out.println("entry = " + entry);
-                                        }
-//                                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
-                                        System.out.println("acking");
-                                    }
-                                    case PICTURE:
-                                    {
-                                    }
-                                    case GPS:
-                                    {
-                                    }
-                                    case VOTE:
-                                    {
-                                    }
-                                    case HEARTBEAT:
-                                    {
-                                    }
-                                }
-                            }
-                        }
-                        // IS THE LEADER
-                        else
-                        {
-                            AppPacket ackPacket = new AppPacket(packet.getData());
-                            switch (ackPacket.getType())
-                            {
-                                case ACK:
-                                {
-                                    Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
-                                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(), new Pair<AppPacket, Integer>(ackedPacket.getKey(), ackedPacket.getValue() + 1));
-                                    ackedPacket = outgoinglocalStorage.get(ackPacket.getSeq());
-                                    Integer count = ackedPacket.getValue();
-
-                                    int majority = (getMajority() / 2) + 1;
-                                    if (count >= majority)
-                                    {
-                                        fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
-                                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
-                                        if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
-                                        {
-                                            multicastSocket.send(commitPacket.getDatagram(group, PORT));
-                                        }
-                                        else
-                                        {
-                                            System.out.println("wrong term cant commit");
-                                        }
-                                        logIndex++;
-                                    }
-                                }
-                                case COMMENT:
-                                {
-
-                                }
-                                case COMMIT:
-                                {
-                                }
-                                case PICTURE:
-                                {
-                                }
-                                case GPS:
-                                {
-                                }
-                                case VOTE:
-                                {
-                                }
-                                case HEARTBEAT:
-                                {
-                                }
-                            }
-                        }
+                        leaderParse(receivedPacket);
                     }
-
+                    else if (serverState.equals(ServerState.FOLLOWER))
+                    {
+                        followerParse(receivedPacket);
+                    }
                 }
             }
             catch (IOException e)
             {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void followerParse(AppPacket receivedPacket)
+    {
+        try
+        {
+            // make sure the packet is from the leader
+            if (receivedPacket.getServerId() == leaderId)
+            {
+                switch (receivedPacket.getType())
+                {
+                    case ACK:
+                    {
+                        System.out.println("SHOULDNT SEE THIS");
+                    }
+                    case COMMENT:
+                    {
+                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
+                        incominglocalStorage.put(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm(), receivedPacket);
+                        multicastSocket.send(ackPacket.getDatagram(group, PORT));
+                        System.out.println("acking");
+
+                    }
+                    case COMMIT:
+                    {
+                        AppPacket ackPacket = new AppPacket(serverId, AppPacket.PacketType.ACK, leaderId, 0, 3, receivedPacket.getSeq(), 55, "");
+                        AppPacket local = incominglocalStorage.get(receivedPacket.getLogIndex() + " " + receivedPacket.getTerm());
+                        fakeDB.put(local.getLogIndex(), new String(local.getData()));
+                    }
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void leaderParse(AppPacket receivedPacket)
+    {
+        try
+        {
+            switch (receivedPacket.getType())
+            {
+                case ACK:
+                {
+                    Pair<AppPacket, Integer> ackedPacket = outgoinglocalStorage.get(receivedPacket.getSeq());
+                    outgoinglocalStorage.put(ackedPacket.getKey().getSeq(), new Pair<AppPacket, Integer>(ackedPacket.getKey(), ackedPacket.getValue() + 1));
+                    ackedPacket = outgoinglocalStorage.get(receivedPacket.getSeq());
+                    Integer count = ackedPacket.getValue();
+
+                    int majority = (getMajority() / 2) + 1;
+                    if (count >= majority)
+                    {
+                        fakeDB.put(ackedPacket.getKey().getLogIndex(), new String(ackedPacket.getKey().getData()));
+                        AppPacket commitPacket = new AppPacket(serverId, AppPacket.PacketType.COMMIT, leaderId, termNum, groupCount, ackedPacket.getKey().getSeq(), ackedPacket.getKey().getLogIndex(), "Committing");
+                        if (commitPacket.getTerm() == ackedPacket.getKey().getTerm())
+                        {
+                            multicastSocket.send(commitPacket.getDatagram(group, PORT));
+                        }
+                        else
+                        {
+                            System.out.println("wrong term cant commit");
+                        }
+                        logIndex++;
+                    }
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 
