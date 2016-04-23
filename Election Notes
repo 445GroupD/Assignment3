@@ -17,6 +17,7 @@ Follower receives a RequestVote packet
   a) RequestVote packet's term number <= current term 
     - ignore packet
   b) RequestVote packet's term number > current term
+    - set leader id to null
     - send a Vote packet
     - set current term = term number of RequestVote packet
 2) Waits for heartbeats
