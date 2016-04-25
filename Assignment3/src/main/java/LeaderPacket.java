@@ -1,5 +1,7 @@
 import java.util.Map;
 
+import static java.lang.String.format;
+
 /**
  * Created by Lincoln W Daniel on 4/22/2016.
  *
@@ -90,5 +92,11 @@ public class LeaderPacket
     {
         //return the next sequence number to be set on a packet being sent to followers
         return ++lastSequenceNumber;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Leader Packet [ " + packet.toString() + " Acks Received: " + acksReceived + " ]";
     }
 }
