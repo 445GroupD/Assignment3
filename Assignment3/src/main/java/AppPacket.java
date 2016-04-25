@@ -193,7 +193,15 @@ public class AppPacket
                     {
 
                     }
-                };
+                },
+        HEARTBEAT_ACK(7)
+        {
+            @Override
+            public void parseData(byte[] data)
+            {
+
+            }
+        };
 
 
         private final int ident;
