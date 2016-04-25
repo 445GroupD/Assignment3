@@ -1,14 +1,24 @@
+import org.apache.http.HttpException;
+import utils.WebService.RestCaller;
+
+import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.String.format;
@@ -32,29 +42,107 @@ public class MulticastServer
 
     private final Map<Integer, LeaderPacket> outgoingLocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
     private final LinkedBlockingQueue<String> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<String>();
+    private JTextArea console;
 
 
-    public MulticastServer(int serverId, int leaderId) throws IOException
+    public MulticastServer(int serverId, int leaderId, CountDownLatch latch) throws IOException
     {
         this.serverId = serverId;
         this.leaderId = leaderId;
         this.term = 0;
-        System.out.println("serverId = " + serverId);
-        System.out.println("leaderId = " + leaderId);
-        if (this.serverId == this.leaderId)
-        {
-            consoleMessage("IS LEADER");
-            serverState = ServerState.LEADER;
-        }
+
+        if(serverId == leaderId) serverState = ServerState.LEADER;
 
         // Create Socket
         multicastSocket = new MulticastSocket(PORT);
         group = InetAddress.getByName(GROUP_IP);
         multicastSocket.joinGroup(group);
 
+        launchGUI(latch);
+
         startSendingThread();
         startReceivingThread();
-        startDebugConsole();
+
+        consolePrompt("What do you want to do: ");
+    }
+
+    private void launchGUI(CountDownLatch latch) {
+        //1. Create the frame.
+        String isLeaderDisplay = serverId == leaderId? "*L* " : "";
+        JFrame frame = new JFrame(isLeaderDisplay + "Server #" + serverId + " | " + leaderId);
+        frame.setSize(500, 500);
+
+        //2. Optional: What happens when the frame closes?
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        //3. Create components and put them in the frame.
+        //...create emptyLabel...
+        console = new JTextArea();
+        console.setSize(500, 500);
+        console.setLineWrap( true );
+        console.setWrapStyleWord( true );
+        console.addKeyListener(new KeyAdapter() {
+            public boolean waitingForClientMessageToSend;
+
+            @Override
+            public void keyTyped(KeyEvent keyEvent) {
+                super.keyTyped(keyEvent);
+                //the enter key returns a '\n' new line char
+                if (keyEvent.getKeyChar() == '\n') {
+                    try {
+                        //the offset is the line before the current position of the caret
+                        int offset = console.getLineOfOffset(console.getCaretPosition() - 1);
+                        int start = console.getLineStartOffset(offset);
+                        int end = console.getLineEndOffset(offset);
+
+                        String textFromGUI = console.getText(start, (end - start)).trim();
+                        System.out.println(textFromGUI + "| Waiting for client message to send?: " + waitingForClientMessageToSend);
+                        if (textFromGUI.equals("status"))
+                        {
+                            debugStatus();
+
+                            consolePrompt("What do you want to do: ");
+                        }
+                        else if (textFromGUI.equals("send"))
+                        {
+                            waitingForClientMessageToSend = true;
+                            consolePrompt("Data to send: ");
+
+                        } else if(waitingForClientMessageToSend && !textFromGUI.isEmpty()) {
+                            waitingForClientMessageToSend = false;
+                            //System.out.println("SENDING " + textFromGUI);
+                            addClientMessage(textFromGUI);
+
+                            consolePrompt("What do you want to do: ");
+                        }
+
+                    } catch (BadLocationException ex) {
+                        System.out.println(ex.getMessage());
+                    }
+                }
+            }
+        });
+
+        JPanel p = new JPanel();
+        p.setSize(500, 500);
+        p.setLayout(new BorderLayout());
+        p.add(console, BorderLayout.CENTER);
+        JScrollPane scrollpane = new JScrollPane(p);
+        frame.getContentPane().add(scrollpane, BorderLayout.CENTER);
+
+        //4. Show it.
+        frame.setVisible(true);
+        latch.countDown();
+    }
+
+    private void addClientMessage(String textFromGUI) {
+        //System.out.println("ADDING CM " + textFromGUI);
+        try {
+            linkedBlockingClientMessageQueue.put(textFromGUI);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //System.out.println("ADDED CM " + textFromGUI);
     }
 
 
@@ -74,42 +162,6 @@ public class MulticastServer
         consoleMessage("started incoming thread");
     }
 
-    private void startDebugConsole()
-    {
-        try
-        {
-            BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-            while (true)
-            {
-                consolePrompt("What do you want to do: ");
-                String[] other = in.readLine().split(" ");
-
-                if (other[0].equals("status"))
-                {
-                    debugStatus();
-                }
-                else if (other[0].equals("send"))
-                {
-                    consolePrompt("Data to send: ");
-                    debugSend(in.readLine());
-                }
-            }
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-    private void debugSend(String debugData)
-    {
-        try {
-            linkedBlockingClientMessageQueue.put(debugData);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
     private void debugStatus()
     {
         consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n");
@@ -118,11 +170,12 @@ public class MulticastServer
         consoleMessage("\tterm = " + term);
         consoleMessage("\tContents of FakeDB");
 
-        consoleMessage("\n\t------------------- Server DB Logs -------------------");
+        consoleMessage("\n\t------------------- Start Server DB Logs -------------------");
         for (Map.Entry current : fakeDB.entrySet())
         {
             consoleMessage(format("\n\tLog Index: %s | Log: %s", current.getKey(), current.getValue()));
         }
+        consoleMessage("\n\t------------------- END Server DB Logs -------------------");
         consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n");
     }
 
@@ -188,13 +241,16 @@ public class MulticastServer
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
 
                         fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
+                        RestCaller.postLog(serverId, receivedLogIndex, actualDataFromIncomingStorage);
                         consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString());
                         break;
                 }
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (HttpException e) {
+            e.printStackTrace();
+        } catch (URISyntaxException e) {
             e.printStackTrace();
         }
     }
@@ -281,7 +337,9 @@ public class MulticastServer
 
     public String getClientMessageToSend() {
         try {
-            return linkedBlockingClientMessageQueue.take();
+            String take = linkedBlockingClientMessageQueue.take();
+            //System.out.println("TAKE: " + take);
+            return take;
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -297,17 +355,17 @@ public class MulticastServer
 
     protected void consoleMessage(String s) {
         //m stands for message
-        System.out.println(getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
+       console.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
     }
 
     protected void consoleError(String s) {
         //e stands for error
-        System.out.println(getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
+        console.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
     }
 
     protected void consolePrompt(String s) {
         //p stands for prompt
-        System.out.println(getCurrentDateTime(null) + " #" + serverId + "|p> " + s);
+        console.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|p> " + s + "\n");
     }
 
     public static String getCurrentDateTime(DateFormat dateFormat) {
