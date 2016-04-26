@@ -1,3 +1,9 @@
+package server;
+
+import server.MulticastServer;
+import server.Packet.AppPacket;
+import server.Packet.LeaderPacket;
+
 import java.io.IOException;
 
 /**
@@ -25,7 +31,7 @@ public class MulticastServerSender implements Runnable
                     AppPacket outgoingPacket = new AppPacket(server.getId(), AppPacket.PacketType.COMMENT, server.getLeaderId(), server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, clientMessageToSend);
                     server.getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
 
-                    server.consoleMessage("\nSending " + outgoingPacket.toString());
+                    server.consoleMessage("Sending " + outgoingPacket.toString(), 2);
                     server.getMulticastSocket().send(outgoingPacket.getDatagram(server.getGroup(), server.getPort()));
                     server.clearOutgoingData();
                 }

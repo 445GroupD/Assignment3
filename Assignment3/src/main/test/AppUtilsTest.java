@@ -1,5 +1,6 @@
 import org.junit.Before;
 import org.junit.Test;
+import utils.AppUtils;
 
 import java.nio.ByteBuffer;
 
@@ -11,7 +12,7 @@ public class AppUtilsTest
     public void testBytesToLong() throws Exception
     {
         long testLong = 9000l;
-        assertEquals(testLong,AppUtils.bytesToLong(ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(testLong).array()));
+        assertEquals(testLong, AppUtils.bytesToLong(ByteBuffer.allocate(Long.SIZE / Byte.SIZE).putLong(testLong).array()));
     }
 
     @Test

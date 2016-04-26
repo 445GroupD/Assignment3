@@ -1,3 +1,5 @@
+import server.MulticastServer;
+
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 

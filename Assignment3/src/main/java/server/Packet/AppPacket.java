@@ -1,4 +1,7 @@
+package server.Packet;
+
 import org.apache.commons.lang3.ArrayUtils;
+import utils.AppUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;

@@ -1,3 +1,12 @@
+package server.Packet;
+
+import org.apache.http.HttpException;
+import org.apache.http.HttpResponse;
+import server.MulticastServer;
+import utils.WebService.RestCaller;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Map;
 
 import static java.lang.String.format;
@@ -7,7 +16,7 @@ import static java.lang.String.format;
  *
  * A wrapper for outgoing packets sent by a leader to followers.
  * This object is local to the leader's server and
- * handles committing the actual outgoing AppPacket's data to the leaders persistent database
+ * handles committing the actual outgoing server.Packet.AppPacket's data to the leaders persistent database
  * when the packet has received enough acks from followers to commit.
  *
  * This ensures we are only commiting a packet when we have majority acks,
@@ -39,7 +48,7 @@ public class LeaderPacket
      *
      * @param packet the actual packet being sent to followers
      */
-    LeaderPacket(AppPacket packet)
+    public LeaderPacket(AppPacket packet)
     {
         this.packet = packet;
         this.sequenceNumber = packet.getSequenceNumber();
@@ -52,7 +61,7 @@ public class LeaderPacket
      * @param db
      * @return
      */
-    public int confirm(int majority, Map<Integer, String> db)
+    public int confirm(int majority, MulticastServer server, Map<Integer, String> db)
     {
         //increment the number of acks this packet has received
         acksReceived++;
@@ -63,6 +72,16 @@ public class LeaderPacket
             {
                 int logIndex = db.size() + 1;
                 db.put(logIndex, packet.getReadableData());
+                try {
+                    HttpResponse result = RestCaller.postLog(server, "create", packet.getReadableData());
+                    System.out.println(result.getStatusLine() + " " + result.getEntity() + "\n" + result.toString());
+                } catch (URISyntaxException e) {
+                    e.printStackTrace();
+                } catch (HttpException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
                 //set already committed so this packet is not committed on the next ack
                 alreadyCommittedToDB = true;
