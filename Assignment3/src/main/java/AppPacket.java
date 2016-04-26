@@ -178,6 +178,14 @@ public class AppPacket
                     {
 
                     }
+                },
+        VOTE_REQUEST(7)
+                {
+                    @Override
+                    public void parseData(byte[] data)
+                    {
+
+                    }
                 };
 
 
