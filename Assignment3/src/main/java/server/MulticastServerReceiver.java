@@ -1,7 +1,10 @@
+package server;
+
+import server.MulticastServer;
+import server.Packet.AppPacket;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
 
 /**
  * Created by Lincoln W Daniel on 4/22/2016.
