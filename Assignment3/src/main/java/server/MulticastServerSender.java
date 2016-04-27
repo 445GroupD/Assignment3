@@ -21,7 +21,7 @@ public class MulticastServerSender implements Runnable
     @Override
     public void run()
     {
-        while (true)
+        while (!server.getDebugKill())
         {
             String clientMessageToSend = server.getClientMessageToSend();
             if (clientMessageToSend != null && !clientMessageToSend.isEmpty() && server.isLeader())

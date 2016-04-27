@@ -1,6 +1,5 @@
 package server;
 
-import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
 import utils.WebService.RestCaller;
@@ -8,13 +7,11 @@ import utils.WebService.RestCaller;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -25,7 +22,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.lang.String.format;
-import static server.Packet.AppPacket.PacketType.*;
+import static server.Packet.AppPacket.PacketType.ACK;
+import static server.Packet.AppPacket.PacketType.COMMIT;
 
 public class MulticastServer
 {
@@ -33,6 +31,9 @@ public class MulticastServer
 
     private static final int PORT = 4446;
     private static final String GROUP_IP = "239.255.255.255";
+    private Thread outgoing;
+    private Thread incoming;
+    private Thread heartbeat;
     private ServerState serverState = ServerState.FOLLOWER;
     private final MulticastSocket multicastSocket;
     private final InetAddress group;
@@ -46,6 +47,8 @@ public class MulticastServer
 
     private final Map<Integer, LeaderPacket> outgoingLocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
     private final LinkedBlockingQueue<String> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<String>();
+    private final Map<Integer, Integer> followerStatusMap = new ConcurrentHashMap<Integer, Integer>();
+
     private JTextArea userConsole;
     private JScrollPane scrollpane;
     private JTextArea serverConsole;
@@ -53,6 +56,9 @@ public class MulticastServer
     private JButton userMessageInputButton;
     private JButton serverStatusButton;
     private JButton serverKillButton;
+    private boolean heartbeatDebug = false;
+    private int latestLogIndex = 0;
+    private boolean debugKill = false;
 
 
     public MulticastServer(int serverId, int leaderId, CountDownLatch latch) throws IOException
@@ -61,7 +67,7 @@ public class MulticastServer
         this.leaderId = leaderId;
         this.term = 0;
 
-        if(serverId == leaderId) serverState = ServerState.LEADER;
+        if (serverId == leaderId) serverState = ServerState.LEADER;
 
         // Create Socket
         multicastSocket = new MulticastSocket(PORT);
@@ -70,13 +76,15 @@ public class MulticastServer
 
         launchGUI(latch);
 
-        startSendingThread();
-        startReceivingThread();
+        outgoing = startSendingThread();
+        incoming = startReceivingThread();
+        heartbeat = startHeartbeatThread();
     }
 
-    private void launchGUI(CountDownLatch latch) {
+    private void launchGUI(CountDownLatch latch)
+    {
         //1. Create the frame.
-        String isLeaderDisplay = serverId == leaderId? "*L* " : "";
+        String isLeaderDisplay = serverId == leaderId ? "*L* " : "";
         JFrame frame = new JFrame(isLeaderDisplay + "Server #" + serverId + " | " + leaderId);
         frame.setSize(1100, 500);
 
@@ -108,7 +116,8 @@ public class MulticastServer
         latch.countDown();
     }
 
-    private JPanel constructUserConsolePanel() {
+    private JPanel constructUserConsolePanel()
+    {
         userConsole = new JTextArea();
         userConsole.setSize(500, 500);
         userConsole.setLineWrap(true);
@@ -121,22 +130,27 @@ public class MulticastServer
         userMessageInputButton = new JButton("Send");
         userMessageInputButton.setSize(50, 100);
 
-        userMessageInput.addKeyListener(new KeyAdapter() {
+        userMessageInput.addKeyListener(new KeyAdapter()
+        {
             public boolean waitingForClientMessageToSend;
 
             @Override
-            public void keyTyped(KeyEvent keyEvent) {
+            public void keyTyped(KeyEvent keyEvent)
+            {
                 super.keyTyped(keyEvent);
                 //the enter key returns a '\n' new line char
-                if (keyEvent.getKeyChar() == '\n') {
+                if (keyEvent.getKeyChar() == '\n')
+                {
                     userMessageInputButton.doClick();
                 }
             }
         });
 
-        userMessageInputButton.addActionListener(new ActionListener() {
+        userMessageInputButton.addActionListener(new ActionListener()
+        {
             @Override
-            public void actionPerformed(ActionEvent actionEvent) {
+            public void actionPerformed(ActionEvent actionEvent)
+            {
                 userMessageInput.setEditable(false);
                 String textFromGUI = userMessageInput.getText();
                 addClientMessage(textFromGUI);
@@ -146,43 +160,52 @@ public class MulticastServer
             }
         });
 
-        userMessageInputButton.addMouseListener(new MouseListener() {
+        userMessageInputButton.addMouseListener(new MouseListener()
+        {
             @Override
-            public void mouseClicked(MouseEvent mouseEvent) {
+            public void mouseClicked(MouseEvent mouseEvent)
+            {
                 userMessageInputButton.doClick();
             }
 
             @Override
-            public void mousePressed(MouseEvent mouseEvent) {
+            public void mousePressed(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseReleased(MouseEvent mouseEvent) {
+            public void mouseReleased(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseEntered(MouseEvent mouseEvent) {
+            public void mouseEntered(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseExited(MouseEvent mouseEvent) {
+            public void mouseExited(MouseEvent mouseEvent)
+            {
 
             }
         });
 
         //add a listener to the userConsole's document to know when text has been added to it
-        userConsole.getDocument().addDocumentListener(new DocumentListener() {
+        userConsole.getDocument().addDocumentListener(new DocumentListener()
+        {
 
             @Override
-            public void removeUpdate(DocumentEvent e) {
+            public void removeUpdate(DocumentEvent e)
+            {
                 //System.out.println("REMOVE UPDATE");
             }
 
             @Override
-            public void insertUpdate(DocumentEvent e) {
+            public void insertUpdate(DocumentEvent e)
+            {
                 //System.out.println("INSERT UPDATE " + e);
                /* if(e.toString().contains("javax.swing.text.AbstractDocument")) {
                     consolePrompt("What do you want to do: ");
@@ -192,7 +215,8 @@ public class MulticastServer
             }
 
             @Override
-            public void changedUpdate(DocumentEvent arg0) {
+            public void changedUpdate(DocumentEvent arg0)
+            {
                 //System.out.println("CHANGE UPDATE");
             }
         });
@@ -213,7 +237,8 @@ public class MulticastServer
         return userConsolePanel;
     }
 
-    private JPanel constructServerConsolePanel() {
+    private JPanel constructServerConsolePanel()
+    {
         serverConsole = new JTextArea();
         serverConsole.setSize(400, 500);
         serverConsole.setLineWrap(true);
@@ -223,44 +248,53 @@ public class MulticastServer
         serverStatusButton = new JButton("Status");
         serverStatusButton.setSize(50, 100);
 
-        serverStatusButton.addMouseListener(new MouseListener() {
+        serverStatusButton.addMouseListener(new MouseListener()
+        {
             @Override
-            public void mouseClicked(MouseEvent mouseEvent) {
+            public void mouseClicked(MouseEvent mouseEvent)
+            {
                 consoleMessage("Show Status", 2);
                 debugStatus();
             }
 
             @Override
-            public void mousePressed(MouseEvent mouseEvent) {
+            public void mousePressed(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseReleased(MouseEvent mouseEvent) {
+            public void mouseReleased(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseEntered(MouseEvent mouseEvent) {
+            public void mouseEntered(MouseEvent mouseEvent)
+            {
 
             }
 
             @Override
-            public void mouseExited(MouseEvent mouseEvent) {
+            public void mouseExited(MouseEvent mouseEvent)
+            {
 
             }
         });
 
         //add a listener to the userConsole's document to know when text has been added to it
-        serverConsole.getDocument().addDocumentListener(new DocumentListener() {
+        serverConsole.getDocument().addDocumentListener(new DocumentListener()
+        {
 
             @Override
-            public void removeUpdate(DocumentEvent e) {
+            public void removeUpdate(DocumentEvent e)
+            {
                 //System.out.println("REMOVE UPDATE");
             }
 
             @Override
-            public void insertUpdate(DocumentEvent e) {
+            public void insertUpdate(DocumentEvent e)
+            {
                 //System.out.println("INSERT UPDATE " + e);
                /* if(e.toString().contains("javax.swing.text.AbstractDocument")) {
                     consolePrompt("What do you want to do: ");
@@ -270,35 +304,82 @@ public class MulticastServer
             }
 
             @Override
-            public void changedUpdate(DocumentEvent arg0) {
+            public void changedUpdate(DocumentEvent arg0)
+            {
                 //System.out.println("CHANGE UPDATE");
+            }
+        });
+
+        JButton heartbeatButton = new JButton("heartBeat");
+        heartbeatButton.setSize(50, 100);
+        heartbeatButton.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                heartbeatDebug = !heartbeatDebug;
             }
         });
 
         serverKillButton = new JButton("Kill");
         serverKillButton.setSize(50, 100);
+        serverKillButton.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                try
+                {
+                    if (serverKillButton.getText().equals("Kill"))
+                    {
+                        debugKill = true;
+                        serverKillButton.setText("Restart");
+                        multicastSocket.leaveGroup(group);
+
+                    }
+                    else
+                    {
+                        debugKill = false;
+                        multicastSocket.joinGroup(group);
+                        serverKillButton.setText("Kill");
+                        outgoing = startSendingThread();
+                        incoming = startReceivingThread();
+                        heartbeat = startHeartbeatThread();
+                    }
+                }
+                catch (IOException e1)
+                {
+                    e1.printStackTrace();
+                }
+            }
+        });
 
         JPanel serverControlsPanel = new JPanel();
         serverControlsPanel.setSize(500, 500);
         serverControlsPanel.setLayout(new BorderLayout());
         serverControlsPanel.add(serverStatusButton, BorderLayout.WEST);
+        serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         serverControlsPanel.add(serverKillButton, BorderLayout.EAST);
 
         JPanel serverConsolePanel = new JPanel();
         serverConsolePanel.setSize(500, 500);
         serverConsolePanel.setLayout(new BorderLayout());
-        serverConsolePanel.add(new JLabel("Server "+ serverId + " Console"), BorderLayout.NORTH);
+        serverConsolePanel.add(new JLabel("Server " + serverId + " Console"), BorderLayout.NORTH);
 
         serverConsolePanel.add(serverConsole, BorderLayout.CENTER);
         serverConsolePanel.add(serverControlsPanel, BorderLayout.SOUTH);
         return serverConsolePanel;
     }
 
-    private void scrollToBottom(JScrollPane scrollPane) {
+
+    private void scrollToBottom(JScrollPane scrollPane)
+    {
         final JScrollBar verticalBar = scrollPane.getVerticalScrollBar();
-        AdjustmentListener downScroller = new AdjustmentListener() {
+        AdjustmentListener downScroller = new AdjustmentListener()
+        {
             @Override
-            public void adjustmentValueChanged(AdjustmentEvent e) {
+            public void adjustmentValueChanged(AdjustmentEvent e)
+            {
                 Adjustable adjustable = e.getAdjustable();
                 adjustable.setValue(adjustable.getMaximum());
                 verticalBar.removeAdjustmentListener(this);
@@ -307,31 +388,44 @@ public class MulticastServer
         verticalBar.addAdjustmentListener(downScroller);
     }
 
-    private void addClientMessage(String textFromGUI) {
+    private void addClientMessage(String textFromGUI)
+    {
         //System.out.println("ADDING CM " + textFromGUI);
-        try {
+        try
+        {
             linkedBlockingClientMessageQueue.put(textFromGUI);
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e)
+        {
             e.printStackTrace();
         }
         //System.out.println("ADDED CM " + textFromGUI);
     }
 
+    private Thread startHeartbeatThread()
+    {
+        Thread heartbeat = new Thread(new MulticastHeartbeatSender(this));
+        heartbeat.start();
+        consoleMessage("started heartbeat thread", 2);
+        return heartbeat;
+    }
 
-    private void startSendingThread()
+    private Thread startSendingThread()
     {
 
         Thread outgoing = new Thread(new MulticastServerSender(this));
         outgoing.start();
         consoleMessage("started outgoing thread", 2);
+        return outgoing;
     }
 
-    private void startReceivingThread()
+    private Thread startReceivingThread()
     {
 
         Thread incoming = new Thread(new MulticastServerReceiver(this));
         incoming.start();
         consoleMessage("started incoming thread", 2);
+        return incoming;
     }
 
     private void debugStatus()
@@ -353,38 +447,41 @@ public class MulticastServer
 
     public int getMajority()
     {
-        return (int)Math.floor(groupCount / 2);
+        return (int) Math.floor(groupCount / 2);
     }
 
-    public ServerState getServerState() {
+    public ServerState getServerState()
+    {
         return serverState;
     }
 
-    public boolean isFollower() {
+    public boolean isFollower()
+    {
         return serverState.equals(ServerState.FOLLOWER);
     }
 
-    public boolean isLeader() {
+    public boolean isLeader()
+    {
         return serverState.equals(ServerState.LEADER);
     }
 
-    public Map<String, AppPacket> getIncomingLocalStorage() {
+    public Map<String, AppPacket> getIncomingLocalStorage()
+    {
         return incomingLocalStorage;
     }
 
     private final Map<String, AppPacket> incomingLocalStorage = new ConcurrentHashMap<String, AppPacket>();
 
-    public Map<Integer, LeaderPacket> getOutgoingLocalStorage() {
+    public Map<Integer, LeaderPacket> getOutgoingLocalStorage()
+    {
         return outgoingLocalStorage;
     }
-
-
 
 
     /**
      * Used for servers who are receiving packets from the leader.
      * This is a follower of the leader.
-     *
+     * <p/>
      * It receives commit requests and commands from leading servers, in that order,
      * acks to confirm its agreement that the sender is the leader of the group,
      * and if so, it replicates the leader's incoming log to its own db when it receives the commit command from leader.
@@ -402,7 +499,7 @@ public class MulticastServer
                         consoleError("SHOULDNT SEE THIS", 2);
                         break;
                     case COMMENT:
-                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term,groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
+                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
                         consoleMessage("Acking commit request confirmation for " + receivedPacket.toString(), 2);
@@ -415,25 +512,46 @@ public class MulticastServer
                         fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
                         RestCaller.postLog(this, receivedLogIndex, actualDataFromIncomingStorage);
                         consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                        latestLogIndex = receivedPacket.getLogIndex();
+                        break;
+                    case HEARTBEAT:
+                        parseHeartbeat(receivedPacket);
                         break;
                 }
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             e.printStackTrace();
-        } catch (HttpException e) {
-            e.printStackTrace();
-        } catch (URISyntaxException e) {
+        }
+        catch (Exception e)
+        {
             e.printStackTrace();
         }
     }
 
-    private String getIncomingStorageKey(AppPacket receivedPacket) {
+    private void parseHeartbeat(AppPacket receivedPacket) throws IOException
+    {
+        if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+        {
+            //commitDataToDB()
+            latestLogIndex = receivedPacket.getLogIndex();
+        }
+        AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+        multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
+        if (heartbeatDebug)
+        {
+            consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+        }
+    }
+
+    private String getIncomingStorageKey(AppPacket receivedPacket)
+    {
         return receivedPacket.getLeaderId() + " " + receivedPacket.getSequenceNumber() + " " + receivedPacket.getTerm();
     }
 
 
     /**
-     *
      * @param receivedPacket
      */
     public void leaderParse(AppPacket receivedPacket)
@@ -450,6 +568,7 @@ public class MulticastServer
                     if (committedLogIndex > -1)
                     {
                         consoleMessage("\nLeader Committed " + ackedLeaderPacket.toString() + "\n", 2);
+                        latestLogIndex++;
                         //all is well. The log was committed to this leader's persistent db at the committedLogIndex.
                         //send the commit command to all followers if necessary.
 
@@ -467,6 +586,14 @@ public class MulticastServer
                         }
                     }
                     break;
+
+                case HEARTBEAT_ACK:
+                    followerStatusMap.put(receivedPacket.getServerId(),receivedPacket.getLogIndex());
+                    if(heartbeatDebug)
+                    {
+                        consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(),2);
+                    }
+                    break;
             }
         }
         catch (IOException e)
@@ -475,47 +602,80 @@ public class MulticastServer
         }
     }
 
-    public String getOutgoingData() {
+    public String getOutgoingData()
+    {
         return outgoingData;
     }
 
-    public int getLeaderId() {
+    public int getLeaderId()
+    {
         return leaderId;
     }
 
-    public int getTerm() {
+    public int getTerm()
+    {
         return term;
     }
 
-    public InetAddress getGroup() {
+    public InetAddress getGroup()
+    {
         return group;
     }
 
-    public int getPort() {
+    public int getPort()
+    {
         return PORT;
     }
 
-    public int getId() {
+    public int getId()
+    {
         return serverId;
     }
 
-    public MulticastSocket getMulticastSocket() {
+    public MulticastSocket getMulticastSocket()
+    {
         return multicastSocket;
     }
 
-    public void clearOutgoingData() {
+    public void clearOutgoingData()
+    {
         outgoingData = "";
     }
 
-    public String getClientMessageToSend() {
-        try {
+    public Map<Integer, Integer> getFollowerStatusMap()
+    {
+        return followerStatusMap;
+    }
+
+    public boolean getHeartbeatDebug()
+    {
+        return heartbeatDebug;
+    }
+
+    public int getLatestLogIndex()
+    {
+        return latestLogIndex;
+    }
+
+    public String getClientMessageToSend()
+    {
+        try
+        {
             String take = linkedBlockingClientMessageQueue.take();
             //System.out.println("TAKE: " + take);
             return take;
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e)
+        {
             e.printStackTrace();
         }
+
         return null;
+    }
+
+    public boolean getDebugKill()
+    {
+        return debugKill;
     }
 
     public enum ServerState
@@ -525,10 +685,13 @@ public class MulticastServer
         FOLLOWER();
     }
 
-    public void consoleMessage(String s, int which) {
-        if(s != null && !s.trim().isEmpty()) {
+    public void consoleMessage(String s, int which)
+    {
+        if (s != null && !s.trim().isEmpty())
+        {
             //m stands for message
-            switch (which) {
+            switch (which)
+            {
                 case 1:
                     userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
                     break;
@@ -539,10 +702,13 @@ public class MulticastServer
         }
     }
 
-    protected void consoleError(String s, int which) {
+    protected void consoleError(String s, int which)
+    {
         //e stands for error
-        if(s != null && !s.trim().isEmpty()) {
-            switch (which) {
+        if (s != null && !s.trim().isEmpty())
+        {
+            switch (which)
+            {
                 case 1:
                     userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
                     break;
@@ -553,10 +719,13 @@ public class MulticastServer
         }
     }
 
-    protected void consolePrompt(String s, int which) {
+    protected void consolePrompt(String s, int which)
+    {
         //p stands for prompt
-        if(s != null && !s.trim().isEmpty()) {
-            switch (which) {
+        if (s != null && !s.trim().isEmpty())
+        {
+            switch (which)
+            {
                 case 1:
                     userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|p> " + s);
                     break;
@@ -567,8 +736,9 @@ public class MulticastServer
         }
     }
 
-    public static String getCurrentDateTime(DateFormat dateFormat) {
-        dateFormat = dateFormat != null? dateFormat : DEFAULT_DATE_FORMAT;
+    public static String getCurrentDateTime(DateFormat dateFormat)
+    {
+        dateFormat = dateFormat != null ? dateFormat : DEFAULT_DATE_FORMAT;
         return dateFormat.format(new Date());
     }
 }

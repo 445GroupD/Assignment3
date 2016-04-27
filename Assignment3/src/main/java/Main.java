@@ -13,16 +13,22 @@ public class Main
         in order from serverId 0 through the last.*/
         final CountDownLatch[] latches = {new CountDownLatch(1)};
 
-        new Thread(new Runnable() {
+        new Thread(new Runnable()
+        {
             @Override
-            public void run() {
-                try {
+            public void run()
+            {
+                try
+                {
                     new MulticastServer(0, 4, latches[0]);
-                } catch (IOException e) {
+                }
+                catch (IOException e)
+                {
                     e.printStackTrace();
                 }
             }
         }).start();
+
         latches[0].await();
         latches[0] = new CountDownLatch(1);
         new Thread(new Runnable() {
