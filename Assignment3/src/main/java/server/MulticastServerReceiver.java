@@ -29,7 +29,7 @@ public class MulticastServerReceiver implements Runnable
 
             // Need to create some way to end the program
             boolean sentinel = true;
-            while (sentinel)
+            while (!server.getDebugKill())
             {
                 buf = new byte[1500];
                 packet = new DatagramPacket(buf, buf.length, server.getGroup(), server.getPort());
@@ -46,17 +46,6 @@ public class MulticastServerReceiver implements Runnable
             }
         }
         catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-    private void rest() {
-        try
-        {
-            Thread.sleep(1000);
-        }
-        catch (InterruptedException e)
         {
             e.printStackTrace();
         }

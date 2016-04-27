@@ -1,6 +1,6 @@
 Election Process
 1) Follower stops receving heartbeats and times out
-2) Follower becomes a candidate, increments its term number, and restarts its election timeout counter
+2) Follower becomes a candidate, increments its term number, sets leaderId to null, and restarts its election timeout counter
 3) New Candidate votes for itself and sends out RequestVote packets
 4) Candidate waits for votes
   a) Receives a valid vote packet
@@ -12,20 +12,30 @@ Election Process
   d) Election Timeout occurs
     - restart election process
     
-Follower receives a RequestVote packet
-1) Check term number of packet
-  a) RequestVote packet's term number <= current term 
+The rules for when a server updates its term and follows a new leader are outlined as follows:
+Whenever any server receives a VoteRequest packet, if the term number of that packet is greater than the server's current term, the server accepts the request as a signal that an election is underway. It will then update its term to match that of the request vote packet and set its leader as null, since it is does not yet know who will be the leader for that term. 
+On the other hand, if a server receives a VoteRequest packet with a term equal to its current term, it ignores the packet since it has already voted for a candidate for the current term.
+Likewise, a server will ignore all VoteRequest packets with term numbers less than its own.
+
+Just like with VoteRequest packets, whenever any server receives a non-VoteRequest packet, if the term number of that packet is greater than the server's current term, it will assume the server who sent the packet has more up-to-date information about the state of the network and it will defer to the information included in the packet. The server will update its term to match the term of the packet and it will update its leader id to match the leader id field of the packet. 
+However, if a server receives a non-VoteRequest packet with a term equal to its current term, it will first check its own leader id. It will only accept packets that come from the server's accepted leader. If, however, the server's leader id field is null, it will assume the leader id of the packet is the leader of the present term and update its server id to match. It will then treat the packet like any packet that came from its accepted leader.
+And of course, a server will ignore all packets with term numbers less than its own.
+
+We can summarize the above conditions as follows:
+1) Packet.termNum < termNum
+  - ignore packet
+2) Packet.termNum == termNum
+  a) packet.type == VoteRequest
     - ignore packet
-  b) RequestVote packet's term number > current term
-    - set leader id to null
-    - send a Vote packet
-    - set current term = term number of RequestVote packet
-2) Waits for heartbeats
-  a) Term Number of Heartbeat >= current term
-    - update current term
-    - update leader id
-  b) Term Number of Heartbeat < current term
-    - ignore heartbeat
+  b) packet.type != VoteRequest
+    i) this.leaderId == null
+      - update term num and leaderid to match packet
+    ii) this.leaderId == packet.leaderId
+      - accept and process packet
+    iii) this.leaderId != packet.leaderId
+      - ignore packet 
+3) Packet.termNum > termNum
+  - update term and leaderid to match packet
     
     ***Things to consider***
     1) What happens if a client sends to a candidate during election
