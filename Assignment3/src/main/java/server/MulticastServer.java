@@ -445,7 +445,7 @@ public class MulticastServer
                 case ACK:
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
-                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this, fakeDB);
+                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
                     //make sure the log index returned from committing is valid
                     if (committedLogIndex > -1)
                     {
@@ -471,6 +471,10 @@ public class MulticastServer
         }
         catch (IOException e)
         {
+            e.printStackTrace();
+        } catch (HttpException e) {
+            e.printStackTrace();
+        } catch (URISyntaxException e) {
             e.printStackTrace();
         }
     }
