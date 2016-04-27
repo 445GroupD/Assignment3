@@ -43,6 +43,7 @@ public class LeaderPacket
     private final long term;
     //whether or not the packet has been committed to the leader's persistent db
     private boolean alreadyCommittedToDB = false;
+    private int logIndex;
 
     /**
      *
@@ -58,11 +59,9 @@ public class LeaderPacket
     /**
      * Increases the number of acks this outgoing packet has received to save the
      * @param majority
-     * @param db
      * @return
      */
-    public int confirm(int majority, MulticastServer server, Map<Integer, String> db)
-    {
+    public int confirm(int majority, MulticastServer server) throws HttpException, IOException, URISyntaxException {
         //increment the number of acks this packet has received
         acksReceived++;
         if (!alreadyCommittedToDB)
@@ -70,19 +69,7 @@ public class LeaderPacket
             boolean receivedMajority = acksReceived >= majority;
             if (receivedMajority)
             {
-                int logIndex = db.size() + 1;
-                db.put(logIndex, packet.getReadableData());
-                try {
-                    HttpResponse result = RestCaller.postLog(server, "create", packet.getReadableData());
-                    System.out.println(result.getStatusLine() + " " + result.getEntity() + "\n" + result.toString());
-                } catch (URISyntaxException e) {
-                    e.printStackTrace();
-                } catch (HttpException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
+                logIndex = RestCaller.postLog(server, "create", packet.getReadableData());
                 //set already committed so this packet is not committed on the next ack
                 alreadyCommittedToDB = true;
 
@@ -116,6 +103,7 @@ public class LeaderPacket
     @Override
     public String toString()
     {
-        return "Leader Packet [ " + packet.toString() + " Acks Received: " + acksReceived + " ]";
+        String logIndexDisplay = logIndex >= 1? " | Index: " + logIndex: "";
+        return "Leader Packet [ " + packet.toString() + " Acks Received: " + acksReceived + logIndexDisplay + " ]";
     }
 }

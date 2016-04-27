@@ -1,5 +1,6 @@
 package server;
 
+import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
 import utils.WebService.RestCaller;
@@ -12,6 +13,7 @@ import java.awt.event.*;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -563,7 +565,7 @@ public class MulticastServer
                 case ACK:
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
-                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this, fakeDB);
+                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
                     //make sure the log index returned from committing is valid
                     if (committedLogIndex > -1)
                     {
@@ -598,6 +600,10 @@ public class MulticastServer
         }
         catch (IOException e)
         {
+            e.printStackTrace();
+        } catch (HttpException e) {
+            e.printStackTrace();
+        } catch (URISyntaxException e) {
             e.printStackTrace();
         }
     }
