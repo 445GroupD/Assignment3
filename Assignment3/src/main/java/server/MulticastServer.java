@@ -1,5 +1,6 @@
 package server;
 
+import com.sun.org.apache.regexp.internal.RE;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -432,19 +433,34 @@ public class MulticastServer
 
     private void debugStatus()
     {
-        consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n", 2);
-        consoleMessage("\tid = " + serverId, 2);
-        consoleMessage("\tleaderId = " + leaderId, 2);
-        consoleMessage("\tterm = " + term, 2);
-        consoleMessage("\tContents of FakeDB", 2);
-
-        consoleMessage("\n\t------------------- Start Server DB Logs -------------------", 2);
-        for (Map.Entry current : fakeDB.entrySet())
+        try
         {
-            consoleMessage(format("\n\tLog Index: %s | Log: %s", current.getKey(), current.getValue()), 2);
+            consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n", 2);
+            consoleMessage("\tid = " + serverId, 2);
+            consoleMessage("\tleaderId = " + leaderId, 2);
+            consoleMessage("\tterm = " + term, 2);
+            consoleMessage("\tContents of FakeDB", 2);
+
+            consoleMessage("\n\t------------------- Start Server DB Logs -------------------", 2);
+            for (String current : RestCaller.getAllLogs(this))
+            {
+                consoleMessage(current, 2);
+            }
+            consoleMessage("\n\t------------------- END Server DB Logs -------------------", 2);
+            consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n", 2);
         }
-        consoleMessage("\n\t------------------- END Server DB Logs -------------------", 2);
-        consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n", 2);
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     public int getMajority()
@@ -534,16 +550,30 @@ public class MulticastServer
 
     private void parseHeartbeat(AppPacket receivedPacket) throws IOException
     {
-        if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+        try
         {
-            //commitDataToDB()
-            latestLogIndex = receivedPacket.getLogIndex();
+            if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+            {
+
+                latestLogIndex = receivedPacket.getLogIndex();
+
+                RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
+            }
+
+            AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+            multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
+            if (heartbeatDebug)
+            {
+                consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+            }
         }
-        AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
-        multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
-        if (heartbeatDebug)
+        catch (URISyntaxException e)
         {
-            consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
         }
     }
 
@@ -590,10 +620,10 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
-                    followerStatusMap.put(receivedPacket.getServerId(),receivedPacket.getLogIndex());
-                    if(heartbeatDebug)
+                    followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
+                    if (heartbeatDebug)
                     {
-                        consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(),2);
+                        consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(), 2);
                     }
                     break;
             }
@@ -601,9 +631,13 @@ public class MulticastServer
         catch (IOException e)
         {
             e.printStackTrace();
-        } catch (HttpException e) {
+        }
+        catch (HttpException e)
+        {
             e.printStackTrace();
-        } catch (URISyntaxException e) {
+        }
+        catch (URISyntaxException e)
+        {
             e.printStackTrace();
         }
     }
@@ -708,7 +742,7 @@ public class MulticastServer
         }
     }
 
-    protected void consoleError(String s, int which)
+    public void consoleError(String s, int which)
     {
         //e stands for error
         if (s != null && !s.trim().isEmpty())
