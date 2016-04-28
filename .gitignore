@@ -6,6 +6,30 @@
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # User-specific stuff:
+Assignment3/.idea/workspace.xml
+Assignment3/.idea/tasks.xml
+Assignment3/.idea/dictionaries
+Assignment3/.idea/vcs.xml
+Assignment3/.idea/jsLibraryMappings.xml
+
+# Sensitive or high-churn files:
+Assignment3/.idea/dataSources.ids
+Assignment3/.idea/dataSources.xml
+Assignment3/.idea/dataSources.local.xml
+Assignment3/.idea/sqlDataSources.xml
+Assignment3/.idea/dynamic.xml
+Assignment3/.idea/uiDesigner.xml
+
+# Gradle:
+Assignment3/.idea/gradle.xml
+Assignment3/.idea/libraries
+
+# Mongo Explorer plugin:
+Assignment3/.idea/mongoSettings.xml
+
+
+
+# User-specific stuff:
 .idea/workspace.xml
 .idea/tasks.xml
 .idea/dictionaries
@@ -26,7 +50,6 @@
 
 # Mongo Explorer plugin:
 .idea/mongoSettings.xml
-
 ## File-based project format:
 *.iws
 
