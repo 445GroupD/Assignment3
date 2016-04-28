@@ -7,7 +7,7 @@
     <ignored path="$PROJECT_DIR$/.gradle/" />
     <ignored path="$PROJECT_DIR$/build/" />
     <ignored path=".idea/dataSources.local.xml" />
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="false" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

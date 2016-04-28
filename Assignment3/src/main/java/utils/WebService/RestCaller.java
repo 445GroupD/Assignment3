@@ -5,13 +5,13 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import server.MulticastServer;
 
@@ -21,7 +21,6 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
 
 /**
  * Created by lwdthe1 on 3/11/2016.
@@ -117,22 +116,65 @@ public class RestCaller
 
         JSONObject resultJsonObject = new JSONObject(resultJson);
 
-        JSONArray logs = null;
-        JSONObject logsContainer = resultJsonObject.has("data") ? resultJsonObject.getJSONObject("data") : null;
-        if(logsContainer != null){
-            logs = logsContainer.has("logs") ? logsContainer.getJSONArray("logs") : null;
-        } else {
-            server.consoleError("Logs container empty: " + resultJson,2);
-        }
+        JSONArray logs = resultJsonObject.has("logs") ? resultJsonObject.getJSONArray("logs") : null;
 
-        Iterator<Object> iterator = logs.iterator();
         List<String> logEntry = new ArrayList<String>();
-        while(iterator.hasNext())
+        if (logs != null)
         {
-            logEntry.add(iterator.next().toString());
+            for (int i=0; i<logs.length(); i++) {
+                JSONObject current = logs.getJSONObject(i);
+                String data = current.getString("data");
+                int id = current.getInt("index");
+                logEntry.add("|"+id+"|"+data+"|");
+            }
+        }
+        else
+        {
+            server.consoleError("logs was null", 2);
         }
 
         return logEntry;
+    }
+
+    public static int deleteAll(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Post Header
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId();
+
+        HttpDelete httpDelete = new HttpDelete(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("Sending Delete request to " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpDelete);
+        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
+
+        System.out.println("response = " + response);
+        System.out.println("response.getEntity() = " + response.getEntity());
+        String resultJson = EntityUtils.toString(response.getEntity());
+        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        JSONObject resultJsonObject = new JSONObject(resultJson);
+
+        JSONArray logs = resultJsonObject.has("logs") ? resultJsonObject.getJSONArray("logs") : null;
+
+        List<String> logEntry = new ArrayList<String>();
+        if (logs != null)
+        {
+            for (int i=0; i<logs.length(); i++) {
+                JSONObject current = logs.getJSONObject(i);
+                String data = current.getString("data");
+                int id = current.getInt("index");
+                logEntry.add("|"+id+"|"+data+"|");
+            }
+        }
+        else
+        {
+            server.consoleError("logs was null", 2);
+        }
+
+        return logEntry.size();
     }
 
 

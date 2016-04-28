@@ -60,7 +60,7 @@ public class MulticastServer
     private JButton serverStatusButton;
     private JButton serverKillButton;
     private boolean heartbeatDebug = false;
-    private int latestLogIndex = 0;
+    private int latestLogIndex = 1;
     private boolean debugKill = false;
 
 
@@ -357,12 +357,24 @@ public class MulticastServer
             }
         });
 
+        JButton deleteButton = new JButton("Delete");
+        deleteButton.setSize(50, 100);
+        deleteButton.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                deleteAllFromDB();
+            }
+        });
+
         JPanel serverControlsPanel = new JPanel();
         serverControlsPanel.setSize(500, 500);
         serverControlsPanel.setLayout(new BorderLayout());
         serverControlsPanel.add(serverStatusButton, BorderLayout.WEST);
         serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         serverControlsPanel.add(serverKillButton, BorderLayout.EAST);
+        serverControlsPanel.add(deleteButton, BorderLayout.EAST);
 
         JPanel serverConsolePanel = new JPanel();
         serverConsolePanel.setSize(500, 500);
@@ -372,6 +384,26 @@ public class MulticastServer
         serverConsolePanel.add(serverConsole, BorderLayout.CENTER);
         serverConsolePanel.add(serverControlsPanel, BorderLayout.SOUTH);
         return serverConsolePanel;
+    }
+
+    private void deleteAllFromDB()
+    {
+        try
+        {
+            RestCaller.deleteAll(this);
+        }
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
 
@@ -556,10 +588,9 @@ public class MulticastServer
             {
 
                 latestLogIndex = receivedPacket.getLogIndex();
-
                 RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
             }
-
+            System.out.println("receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
             AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
             multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
             if (heartbeatDebug)
