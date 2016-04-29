@@ -1,6 +1,6 @@
 package server;
 
-import com.sun.org.apache.regexp.internal.RE;
+import net.miginfocom.swing.MigLayout;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -64,11 +64,12 @@ public class MulticastServer
     private boolean debugKill = false;
 
 
-    public MulticastServer(int serverId, int leaderId, CountDownLatch latch) throws IOException
+    public MulticastServer(int serverId, int leaderId, CountDownLatch latch, int x, int y) throws IOException
     {
         this.serverId = serverId;
         this.leaderId = leaderId;
         this.term = 0;
+
 
         if (serverId == leaderId) serverState = ServerState.LEADER;
 
@@ -77,19 +78,19 @@ public class MulticastServer
         group = InetAddress.getByName(GROUP_IP);
         multicastSocket.joinGroup(group);
 
-        launchGUI(latch);
+        launchGUI(latch,x,y);
 
         outgoing = startSendingThread();
         incoming = startReceivingThread();
         heartbeat = startHeartbeatThread();
     }
 
-    private void launchGUI(CountDownLatch latch)
+    private void launchGUI(CountDownLatch latch,int x, int y)
     {
         //1. Create the frame.
         String isLeaderDisplay = serverId == leaderId ? "*L* " : "";
         JFrame frame = new JFrame(isLeaderDisplay + "Server #" + serverId + " | " + leaderId);
-        frame.setSize(1100, 500);
+        frame.setSize(925, 500);
 
         //2. Optional: What happens when the frame closes?
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -112,6 +113,7 @@ public class MulticastServer
         scrollpane = new JScrollPane(scrollPanePanel);
         //add the scroll pane to the frame's content pane.
         frame.getContentPane().add(scrollpane, BorderLayout.CENTER);
+        frame.setLocation(x,y);
 
         //show the frame
         frame.setVisible(true);
@@ -313,7 +315,7 @@ public class MulticastServer
             }
         });
 
-        JButton heartbeatButton = new JButton("heartBeat");
+        final JButton heartbeatButton = new JButton("heartBeat "+ heartbeatDebug);
         heartbeatButton.setSize(50, 100);
         heartbeatButton.addActionListener(new ActionListener()
         {
@@ -321,6 +323,7 @@ public class MulticastServer
             public void actionPerformed(ActionEvent e)
             {
                 heartbeatDebug = !heartbeatDebug;
+                heartbeatButton.setText("heartbeat " +heartbeatDebug);
             }
         });
 
@@ -373,7 +376,7 @@ public class MulticastServer
         serverControlsPanel.setLayout(new BorderLayout());
         serverControlsPanel.add(serverStatusButton, BorderLayout.WEST);
         serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
-        serverControlsPanel.add(serverKillButton, BorderLayout.EAST);
+        serverControlsPanel.add(serverKillButton, BorderLayout.AFTER_LAST_LINE);
         serverControlsPanel.add(deleteButton, BorderLayout.EAST);
 
         JPanel serverConsolePanel = new JPanel();
@@ -440,7 +443,7 @@ public class MulticastServer
     private Thread startHeartbeatThread()
     {
         Thread heartbeat = new Thread(new MulticastHeartbeatSender(this));
-        heartbeat.start();
+//        heartbeat.start();
         consoleMessage("started heartbeat thread", 2);
         return heartbeat;
     }
@@ -590,7 +593,7 @@ public class MulticastServer
                 latestLogIndex = receivedPacket.getLogIndex();
                 RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
             }
-            System.out.println("receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
+            System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
             AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
             multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
             if (heartbeatDebug)

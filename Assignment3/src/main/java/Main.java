@@ -20,7 +20,7 @@ public class Main
             {
                 try
                 {
-                    new MulticastServer(0, 4, latches[0]);
+                    new MulticastServer(0, 4, latches[0], 0, 0);
                 }
                 catch (IOException e)
                 {
@@ -35,7 +35,7 @@ public class Main
             @Override
             public void run() {
                 try {
-                    new MulticastServer(1,4, latches[0]);
+                    new MulticastServer(1,4, latches[0], 950, 0);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -47,20 +47,7 @@ public class Main
             @Override
             public void run() {
                 try {
-                    new MulticastServer(2,4, latches[0]);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-        latches[0].await();
-
-        latches[0] = new CountDownLatch(1);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    new MulticastServer(3,4, latches[0]);
+                    new MulticastServer(2,4, latches[0], 0, 550);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -73,7 +60,20 @@ public class Main
             @Override
             public void run() {
                 try {
-                    new MulticastServer(4,4, latches[0]);
+                    new MulticastServer(3,4, latches[0], 950, 550);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+        latches[0].await();
+
+        latches[0] = new CountDownLatch(1);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    new MulticastServer(4,4, latches[0], 475, 225);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -53,7 +52,6 @@ public class RestCaller
         server.consoleMessage("Sending Post request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpPost);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
@@ -69,7 +67,6 @@ public class RestCaller
         {
             resultantLogIndex = -1;
         }
-        //System.out.println("Log index: " + resultantLogIndex);
         return resultantLogIndex;
     }
 
@@ -85,15 +82,20 @@ public class RestCaller
         server.consoleMessage("Sending Get request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpGet);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
         JSONObject resultJsonObject = new JSONObject(resultJson);
-
-        String resultantLogIndex;
-        resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+        String resultantLogIndex = "";
+        if(resultJsonObject.has("error"))
+        {
+            server.consoleError(resultJsonObject.getString("errorMessage"),2);
+        }
+        else
+        {
+            resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+        }
         return resultantLogIndex;
     }
 
@@ -109,7 +111,6 @@ public class RestCaller
         server.consoleMessage("Sending Get request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpGet);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
@@ -148,10 +149,7 @@ public class RestCaller
         server.consoleMessage("Sending Delete request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpDelete);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
-        System.out.println("response = " + response);
-        System.out.println("response.getEntity() = " + response.getEntity());
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
