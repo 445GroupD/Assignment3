@@ -19,9 +19,13 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static java.lang.String.format;
 import static server.Packet.AppPacket.PacketType.ACK;
@@ -33,18 +37,28 @@ public class MulticastServer
 
     private static final int PORT = 4446;
     private static final String GROUP_IP = "239.255.255.255";
+    private static final int MIN_TIMEOUT = 15000;
+    private static final int MAX_TIMEOUT = 30000;
     private Thread outgoing;
     private Thread incoming;
     private Thread heartbeat;
+    private Thread timeoutThread;
     private ServerState serverState = ServerState.FOLLOWER;
     private final MulticastSocket multicastSocket;
     private final InetAddress group;
     private final int serverId;
     private int leaderId;
     private int term;
+    private int voteCount = 0;
+    private Lock serverStateLock = new ReentrantLock();
+    private Lock timeoutLock = new ReentrantLock();
     private String outgoingData;
     private long groupCount = 5;
-
+    private boolean sentVoteRequests = false;
+    private int lastVotedElection = 0;
+    private int timeout;
+    private long startTime;
+    private Random rand = new Random();
     private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
 
     private final Map<Integer, LeaderPacket> outgoingLocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
@@ -58,7 +72,8 @@ public class MulticastServer
     private JButton userMessageInputButton;
     private JButton serverStatusButton;
     private JButton serverKillButton;
-    private boolean heartbeatDebug = false;
+    private JButton serverTimeoutButton;
+    private boolean heartbeatDebug = true;
     private int latestLogIndex = 0;
     private boolean debugKill = false;
 
@@ -81,6 +96,7 @@ public class MulticastServer
         outgoing = startSendingThread();
         incoming = startReceivingThread();
         heartbeat = startHeartbeatThread();
+        if(!this.isLeader()){ timeoutThread = startTimeOutThread();}
     }
 
     private void launchGUI(CountDownLatch latch)
@@ -213,7 +229,7 @@ public class MulticastServer
                     consolePrompt("What do you want to do: ");
                 }*/
                 userConsole.setCaretPosition(userConsole.getDocument().getLength());
-                scrollToBottom(scrollpane);
+                //scrollToBottom(scrollpane);
             }
 
             @Override
@@ -283,6 +299,42 @@ public class MulticastServer
 
             }
         });
+        serverTimeoutButton = new JButton("Timeout");
+        serverTimeoutButton.setSize(50, 100);
+
+        serverTimeoutButton.addMouseListener(new MouseListener()
+        {
+            @Override
+            public void mouseClicked(MouseEvent mouseEvent)
+            {
+                consoleMessage("Timeout Server", 2);
+                debugTimeout();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent mouseEvent)
+            {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent mouseEvent)
+            {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent)
+            {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent)
+            {
+
+            }
+        });
 
         //add a listener to the userConsole's document to know when text has been added to it
         serverConsole.getDocument().addDocumentListener(new DocumentListener()
@@ -302,7 +354,7 @@ public class MulticastServer
                     consolePrompt("What do you want to do: ");
                 }*/
                 userConsole.setCaretPosition(userConsole.getDocument().getLength());
-                scrollToBottom(scrollpane);
+                //scrollToBottom(scrollpane);
             }
 
             @Override
@@ -360,7 +412,8 @@ public class MulticastServer
         serverControlsPanel.setSize(500, 500);
         serverControlsPanel.setLayout(new BorderLayout());
         serverControlsPanel.add(serverStatusButton, BorderLayout.WEST);
-        serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
+        serverControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
+        //serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         serverControlsPanel.add(serverKillButton, BorderLayout.EAST);
 
         JPanel serverConsolePanel = new JPanel();
@@ -429,13 +482,21 @@ public class MulticastServer
         consoleMessage("started incoming thread", 2);
         return incoming;
     }
-
+    private Thread startTimeOutThread()
+    {
+        Thread timeOut = new Thread(new TimeoutThread(this));
+        timeOut.start();
+        consoleMessage("Timeout Thread has started",2);
+        return timeOut;
+    }
     private void debugStatus()
     {
         consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n", 2);
+        consoleMessage("\tstate = " + serverState, 2);
         consoleMessage("\tid = " + serverId, 2);
         consoleMessage("\tleaderId = " + leaderId, 2);
         consoleMessage("\tterm = " + term, 2);
+        consoleMessage("\thasSentVoteRequest = " + hasSentVoteRequests(), 2);
         consoleMessage("\tContents of FakeDB", 2);
 
         consoleMessage("\n\t------------------- Start Server DB Logs -------------------", 2);
@@ -445,6 +506,11 @@ public class MulticastServer
         }
         consoleMessage("\n\t------------------- END Server DB Logs -------------------", 2);
         consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n", 2);
+    }
+
+    private void debugTimeout()
+    {
+        changeServerState(ServerState.CANIDATE);
     }
 
     public int getMajority()
@@ -466,6 +532,10 @@ public class MulticastServer
     {
         return serverState.equals(ServerState.LEADER);
     }
+
+    public boolean isCandidate(){return serverState.equals(ServerState.CANIDATE);}
+
+    public boolean hasSentVoteRequests(){return sentVoteRequests;}
 
     public Map<String, AppPacket> getIncomingLocalStorage()
     {
@@ -495,6 +565,11 @@ public class MulticastServer
             // make sure the packet is from the leader
             if (receivedPacket.getServerId() == leaderId)
             {
+                consoleMessage("Received Valid Packet", 2);
+                resetTimeout();
+                if(receivedPacket.getTerm() > term){
+                    term = (int)receivedPacket.getTerm();
+                }
                 switch (receivedPacket.getType())
                 {
                     case ACK:
@@ -520,6 +595,44 @@ public class MulticastServer
                         parseHeartbeat(receivedPacket);
                         break;
                 }
+            } else{
+                switch (receivedPacket.getType())
+                {
+                    case VOTE_REQUEST:
+                    {
+                        consoleMessage("Vote Request has been recieved from server " + receivedPacket
+                                .getServerId() + " for term " + receivedPacket.getTerm(),2);
+                        if (receivedPacket.getTerm() > term && lastVotedElection < receivedPacket.getTerm())
+                        {
+                            leaderId = -1;
+                            lastVotedElection = (int) receivedPacket.getTerm();
+                            AppPacket votePacket = new AppPacket(serverId, AppPacket.PacketType.VOTE,
+                                    leaderId, lastVotedElection, groupCount, 0, 0, Integer.toString(receivedPacket.getServerId()));
+                            multicastSocket.send(votePacket.getDatagram(group, PORT));
+                            consoleMessage("voting in term " + term + " for server " + receivedPacket
+                                    .getServerId(),2);
+                        }
+                        break;
+                    }
+                    case VOTE:
+                    {
+                        //IGNORE ALL VOTES
+                        break;
+
+                    }
+                    default:
+                    {
+
+                        if (receivedPacket.getTerm() == term)
+                        {
+                            //consoleMessage("Packet Type: " + receivedPacket.getType(),2);
+                            //consoleMessage("Received a Non-VoteRequest Packet w/ term = our current term. Term Recieved: " + receivedPacket.getTerm() + " || Recieved from server: " + receivedPacket.getServerId(),2);
+                        }
+                        term = (int) receivedPacket.getTerm();
+
+                        break;
+                    }
+                }
             }
         }
         catch (IOException e)
@@ -529,6 +642,50 @@ public class MulticastServer
         catch (Exception e)
         {
             e.printStackTrace();
+        }
+    }
+
+    public void candidateParse(AppPacket receivedPacket)
+    {
+
+        switch (receivedPacket.getType())
+        {
+            case VOTE:
+            {
+                /* Only accepts votes from the current term that are directed at this server*/
+                String data = new String(receivedPacket.getData());
+                data = data.trim();
+                consoleMessage("Vote recieved from server: " + receivedPacket.getServerId() + " for server: " +
+                        data,2);
+                if (receivedPacket.getTerm() == term && serverId == Integer.parseInt(data))
+                {
+                    consoleMessage("vote accepted for term: " + term,2);
+                    voteCount++;
+                    consoleMessage("Current Vote count: " + voteCount,2);
+                    if (voteCount >= getMajority() + 1)
+                    {
+                        consoleMessage("Majority vote: " + voteCount,2);
+                        consoleMessage("Election won",2);
+                        changeServerState(ServerState.LEADER);
+                    }
+                }
+                break;
+            }
+            case HEARTBEAT:
+            case COMMENT:
+            case PICTURE:
+            case GPS:
+            case COMMIT:
+            {
+                if (receivedPacket.getTerm() >= term)
+                {
+                    // a new leader has been elected; defer to that leader
+                    consoleMessage("Higher or equal term detected: switching to follower state", 2);
+                    changeServerState(ServerState.FOLLOWER);
+                    followerParse(receivedPacket);
+                }
+                break;
+            }
         }
     }
 
@@ -608,6 +765,43 @@ public class MulticastServer
         }
     }
 
+    public void changeServerState(ServerState nextState)
+    {
+        try
+        {
+            if(serverStateLock.tryLock(100, TimeUnit.MILLISECONDS))
+            {
+                consoleMessage("changing state to: " + nextState,2);
+                if (nextState == ServerState.LEADER)
+                {
+                    timeoutThread = null;
+                    leaderId = serverId;
+                } else if (timeoutThread == null)
+                {
+                    timeoutThread = startTimeOutThread();
+                }
+                serverState = nextState;
+                voteCount = 0;
+                serverStateLock.unlock();
+            }
+            else
+            {
+                consoleMessage("Thread locked, cannot change state",2);
+            }
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+
+
+    }
+    public void initializeCandidate()
+    {
+        voteCount = 1;
+        term++;
+        leaderId = -1;
+    }
+
     public String getOutgoingData()
     {
         return outgoingData;
@@ -638,6 +832,15 @@ public class MulticastServer
         return serverId;
     }
 
+    public int getTimeout() { return timeout; }
+
+    public long getStartTime() {
+        timeoutLock.lock();
+        long start = startTime;
+        timeoutLock.unlock();
+        return start;
+    }
+
     public MulticastSocket getMulticastSocket()
     {
         return multicastSocket;
@@ -661,7 +864,52 @@ public class MulticastServer
     public int getLatestLogIndex()
     {
         return latestLogIndex;
+    };
+
+    public void setSentVoteRequests(boolean vr){sentVoteRequests = true; }
+
+    public boolean filterPacket(AppPacket packet)
+    {
+        if (packet.getServerId() == serverId) /* Filter packets from itself */
+        {
+            return false;
+        } else if (packet.getTerm() < term) /* Packet from obsolete term */
+        {
+            return false;
+        } else if (packet.getTerm() == term)
+        {
+            return true;
+        } else /* Packet.term > termNum: A new term has begun.*/
+        {
+            if (leaderId == -1) /* We don't know the leader of the current term so we accept all packets by
+                default */
+            {
+                return true;
+            }
+            return packet.getServerId() == packet.getLeaderId(); /* Accept packet if it is from the new leader */
+        }
     }
+
+    public void updateStateAndLeader(AppPacket packet)
+    {
+
+        if (packet.getTerm() > term) /* A new term has begun. Update leader and term fields accordingly */
+        {
+            consoleMessage("Received packet of higher term. Term num: " + packet.getTerm() + " From Server: " + packet.getServerId(), 2);
+            leaderId = (int) packet.getLeaderId();
+            changeServerState(ServerState.FOLLOWER);
+        }
+    }
+
+    public void resetTimeout()
+    {
+        timeoutLock.lock();
+        timeout = rand.nextInt(MIN_TIMEOUT) + MAX_TIMEOUT - MIN_TIMEOUT;
+        startTime = System.currentTimeMillis();
+        consoleMessage("Setting new Timeout:" + timeout + "ms", 2);
+        timeoutLock.unlock();
+    }
+
 
     public String getClientMessageToSend()
     {

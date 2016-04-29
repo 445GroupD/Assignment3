@@ -7,10 +7,10 @@ import java.util.Map;
 
 public class MulticastHeartbeatSender implements Runnable
 {
-    public static final int HEARBEAT_INTERVAL = 3000;
+    public static final int HEARBEAT_INTERVAL = 1000;
     private final MulticastServer server;
     private final Map<Integer, Integer> followerStatusMap;
-
+    long lt;
     public MulticastHeartbeatSender(MulticastServer server)
     {
         this.server = server;
@@ -20,6 +20,7 @@ public class MulticastHeartbeatSender implements Runnable
     @Override
     public void run()
     {
+        lt =System.currentTimeMillis();
         while (server.isLeader() && !server.getDebugKill())
         {
             try
@@ -29,6 +30,8 @@ public class MulticastHeartbeatSender implements Runnable
                 if (server.getHeartbeatDebug())
                 {
                     server.consoleMessage("\nSending Heartbeat" + heartbeatPacket.toString(),2);
+                    server.consoleMessage("time since last heartbeat: "+ (lt - System.currentTimeMillis()),2);
+                    lt= System.currentTimeMillis();
                 }
                 server.getMulticastSocket().send(heartbeatPacket.getDatagram(server.getGroup(), server.getPort()));
                 rest();
