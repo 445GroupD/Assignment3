@@ -302,7 +302,7 @@ public class MulticastServer
                /* if(e.toString().contains("javax.swing.text.AbstractDocument")) {
                     consolePrompt("What do you want to do: ");
                 }*/
-                userConsole.setCaretPosition(userConsole.getDocument().getLength());
+                serverConsole.setCaretPosition(userConsole.getDocument().getLength());
                 scrollToBottom(scrollpane);
             }
 
