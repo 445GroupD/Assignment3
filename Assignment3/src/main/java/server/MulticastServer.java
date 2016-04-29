@@ -1,6 +1,5 @@
 package server;
 
-import net.miginfocom.swing.MigLayout;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -24,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static java.lang.String.format;
 import static server.Packet.AppPacket.PacketType.ACK;
 import static server.Packet.AppPacket.PacketType.COMMIT;
 
@@ -83,6 +81,19 @@ public class MulticastServer
         outgoing = startSendingThread();
         incoming = startReceivingThread();
         heartbeat = startHeartbeatThread();
+
+        try
+        {
+            latestLogIndex = RestCaller.getLatestIndexNumber(this);
+        }
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     private void launchGUI(CountDownLatch latch,int x, int y)

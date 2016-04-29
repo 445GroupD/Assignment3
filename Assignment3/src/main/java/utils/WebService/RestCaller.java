@@ -137,7 +137,7 @@ public class RestCaller
         return logEntry;
     }
 
-    public static int deleteAll(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    public static boolean deleteAll(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
@@ -153,26 +153,26 @@ public class RestCaller
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
-        JSONObject resultJsonObject = new JSONObject(resultJson);
+        return true;
+    }
 
-        JSONArray logs = resultJsonObject.has("logs") ? resultJsonObject.getJSONArray("logs") : null;
+    public static int getLatestIndexNumber(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Get Sequence number
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/lastIndex";
 
-        List<String> logEntry = new ArrayList<String>();
-        if (logs != null)
-        {
-            for (int i=0; i<logs.length(); i++) {
-                JSONObject current = logs.getJSONObject(i);
-                String data = current.getString("data");
-                int id = current.getInt("index");
-                logEntry.add("|"+id+"|"+data+"|");
-            }
-        }
-        else
-        {
-            server.consoleError("logs was null", 2);
-        }
+        HttpGet httpGet = new HttpGet(restUri);
 
-        return logEntry.size();
+        // Execute HTTP Post Request
+        server.consoleMessage("Sending Get request to " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpGet);
+
+        String resultJson = EntityUtils.toString(response.getEntity());
+        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        return 1;
     }
 
 
