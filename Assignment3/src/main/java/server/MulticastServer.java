@@ -1,5 +1,6 @@
 package server;
 
+import com.sun.org.apache.regexp.internal.RE;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -37,8 +38,6 @@ public class MulticastServer
 
     private static final int PORT = 4446;
     private static final String GROUP_IP = "239.255.255.255";
-    private static final int MIN_TIMEOUT = 15000;
-    private static final int MAX_TIMEOUT = 30000;
     private Thread outgoing;
     private Thread incoming;
     private Thread heartbeat;
@@ -54,7 +53,6 @@ public class MulticastServer
     private Lock timeoutLock = new ReentrantLock();
     private String outgoingData;
     private long groupCount = 5;
-    private boolean sentVoteRequests = false;
     private int lastVotedElection = 0;
     private int timeout;
     private long startTime;
@@ -73,7 +71,7 @@ public class MulticastServer
     private JButton serverStatusButton;
     private JButton serverKillButton;
     private JButton serverTimeoutButton;
-    private boolean heartbeatDebug = true;
+    private boolean heartbeatDebug = false;
     private int latestLogIndex = 0;
     private boolean debugKill = false;
 
@@ -353,8 +351,8 @@ public class MulticastServer
                /* if(e.toString().contains("javax.swing.text.AbstractDocument")) {
                     consolePrompt("What do you want to do: ");
                 }*/
-                userConsole.setCaretPosition(userConsole.getDocument().getLength());
-                //scrollToBottom(scrollpane);
+                serverConsole.setCaretPosition(userConsole.getDocument().getLength());
+                scrollToBottom(scrollpane);
             }
 
             @Override
@@ -411,10 +409,23 @@ public class MulticastServer
         JPanel serverControlsPanel = new JPanel();
         serverControlsPanel.setSize(500, 500);
         serverControlsPanel.setLayout(new BorderLayout());
-        serverControlsPanel.add(serverStatusButton, BorderLayout.WEST);
-        serverControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
-        //serverControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
-        serverControlsPanel.add(serverKillButton, BorderLayout.EAST);
+
+        JPanel westControlsPanel = new JPanel();
+        westControlsPanel.setSize(250, 500);
+        westControlsPanel.setLayout(new BorderLayout());
+
+        JPanel centralControlsPanel = new JPanel();
+        centralControlsPanel.setSize(250, 500);
+        centralControlsPanel.setLayout(new BorderLayout());
+
+        westControlsPanel.add(serverStatusButton, BorderLayout.WEST);
+        westControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
+
+        centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
+        centralControlsPanel.add(serverKillButton, BorderLayout.EAST);
+
+        serverControlsPanel.add(westControlsPanel, BorderLayout.WEST);
+        serverControlsPanel.add(centralControlsPanel, BorderLayout.CENTER);
 
         JPanel serverConsolePanel = new JPanel();
         serverConsolePanel.setSize(500, 500);
@@ -486,31 +497,46 @@ public class MulticastServer
     {
         Thread timeOut = new Thread(new TimeoutThread(this));
         timeOut.start();
-        consoleMessage("Timeout Thread has started",2);
+        consoleMessage("started timeout thread",2);
         return timeOut;
     }
     private void debugStatus()
     {
-        consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n", 2);
-        consoleMessage("\tstate = " + serverState, 2);
-        consoleMessage("\tid = " + serverId, 2);
-        consoleMessage("\tleaderId = " + leaderId, 2);
-        consoleMessage("\tterm = " + term, 2);
-        consoleMessage("\thasSentVoteRequest = " + hasSentVoteRequests(), 2);
-        consoleMessage("\tContents of FakeDB", 2);
-
-        consoleMessage("\n\t------------------- Start Server DB Logs -------------------", 2);
-        for (Map.Entry current : fakeDB.entrySet())
+        try
         {
-            consoleMessage(format("\n\tLog Index: %s | Log: %s", current.getKey(), current.getValue()), 2);
+            consoleMessage("\n----------------------------- START SERVER STATUS ---------------------------\n", 2);
+            consoleMessage("\tstate = " + serverState, 2);
+            consoleMessage("\tid = " + serverId, 2);
+            consoleMessage("\tleaderId = " + leaderId, 2);
+            consoleMessage("\tterm = " + term, 2);
+            consoleMessage("\tContents of FakeDB", 2);
+
+            consoleMessage("\n\t------------------- Start Server DB Logs -------------------", 2);
+            for (String current : RestCaller.getAllLogs(this))
+            {
+                consoleMessage(current, 2);
+            }
+            consoleMessage("\n\t------------------- END Server DB Logs -------------------", 2);
+            consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n", 2);
         }
-        consoleMessage("\n\t------------------- END Server DB Logs -------------------", 2);
-        consoleMessage("\n----------------------------- END SERVER STATUS ---------------------------\n", 2);
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     private void debugTimeout()
     {
-        changeServerState(ServerState.CANIDATE);
+        //changeServerState(ServerState.CANIDATE);
+        resetTimeout(0);
     }
 
     public int getMajority()
@@ -520,22 +546,23 @@ public class MulticastServer
 
     public ServerState getServerState()
     {
-        return serverState;
+        serverStateLock.lock();
+        ServerState state = serverState;
+        serverStateLock.unlock();
+        return state;
     }
 
     public boolean isFollower()
     {
-        return serverState.equals(ServerState.FOLLOWER);
+        return getServerState().equals(ServerState.FOLLOWER);
     }
 
     public boolean isLeader()
     {
-        return serverState.equals(ServerState.LEADER);
+        return getServerState().equals(ServerState.LEADER);
     }
 
-    public boolean isCandidate(){return serverState.equals(ServerState.CANIDATE);}
-
-    public boolean hasSentVoteRequests(){return sentVoteRequests;}
+    public boolean isCandidate(){return getServerState().equals(ServerState.CANIDATE);}
 
     public Map<String, AppPacket> getIncomingLocalStorage()
     {
@@ -565,7 +592,7 @@ public class MulticastServer
             // make sure the packet is from the leader
             if (receivedPacket.getServerId() == leaderId)
             {
-                consoleMessage("Received Valid Packet", 2);
+                //consoleMessage("Received Valid Packet", 2);
                 resetTimeout();
                 if(receivedPacket.getTerm() > term){
                     term = (int)receivedPacket.getTerm();
@@ -647,7 +674,6 @@ public class MulticastServer
 
     public void candidateParse(AppPacket receivedPacket)
     {
-
         switch (receivedPacket.getType())
         {
             case VOTE:
@@ -691,16 +717,30 @@ public class MulticastServer
 
     private void parseHeartbeat(AppPacket receivedPacket) throws IOException
     {
-        if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+        try
         {
-            //commitDataToDB()
-            latestLogIndex = receivedPacket.getLogIndex();
+            if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+            {
+
+                latestLogIndex = receivedPacket.getLogIndex();
+
+                RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
+            }
+
+            AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+            multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
+            if (heartbeatDebug)
+            {
+                consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+            }
         }
-        AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
-        multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
-        if (heartbeatDebug)
+        catch (URISyntaxException e)
         {
-            consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
         }
     }
 
@@ -747,10 +787,10 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
-                    followerStatusMap.put(receivedPacket.getServerId(),receivedPacket.getLogIndex());
-                    if(heartbeatDebug)
+                    followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
+                    if (heartbeatDebug)
                     {
-                        consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(),2);
+                        consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(), 2);
                     }
                     break;
             }
@@ -758,15 +798,23 @@ public class MulticastServer
         catch (IOException e)
         {
             e.printStackTrace();
-        } catch (HttpException e) {
+        }
+        catch (HttpException e)
+        {
             e.printStackTrace();
-        } catch (URISyntaxException e) {
+        }
+        catch (URISyntaxException e)
+        {
             e.printStackTrace();
         }
     }
 
     public void changeServerState(ServerState nextState)
     {
+        if (nextState == getServerState()) {
+            return;
+        }
+
         try
         {
             if(serverStateLock.tryLock(100, TimeUnit.MILLISECONDS))
@@ -774,14 +822,27 @@ public class MulticastServer
                 consoleMessage("changing state to: " + nextState,2);
                 if (nextState == ServerState.LEADER)
                 {
-                    timeoutThread = null;
                     leaderId = serverId;
-                } else if (timeoutThread == null)
+                    timeoutThread = null;
+                    heartbeat = startHeartbeatThread();
+                } else
                 {
-                    timeoutThread = startTimeOutThread();
+                    if (timeoutThread == null)
+                    {
+                        timeoutThread = startTimeOutThread();
+                    }
+                }
+
+                if (nextState == ServerState.CANIDATE)
+                {
+                    voteCount = 1;
+                    term++;
+                    leaderId = -1;
+                } else
+                {
+                    voteCount = 0;
                 }
                 serverState = nextState;
-                voteCount = 0;
                 serverStateLock.unlock();
             }
             else
@@ -792,14 +853,6 @@ public class MulticastServer
         {
             e.printStackTrace();
         }
-
-
-    }
-    public void initializeCandidate()
-    {
-        voteCount = 1;
-        term++;
-        leaderId = -1;
     }
 
     public String getOutgoingData()
@@ -866,8 +919,6 @@ public class MulticastServer
         return latestLogIndex;
     };
 
-    public void setSentVoteRequests(boolean vr){sentVoteRequests = true; }
-
     public boolean filterPacket(AppPacket packet)
     {
         if (packet.getServerId() == serverId) /* Filter packets from itself */
@@ -892,7 +943,6 @@ public class MulticastServer
 
     public void updateStateAndLeader(AppPacket packet)
     {
-
         if (packet.getTerm() > term) /* A new term has begun. Update leader and term fields accordingly */
         {
             consoleMessage("Received packet of higher term. Term num: " + packet.getTerm() + " From Server: " + packet.getServerId(), 2);
@@ -903,10 +953,16 @@ public class MulticastServer
 
     public void resetTimeout()
     {
+        int timeout = rand.nextInt(TimeoutThread.MIN_TIMEOUT) + TimeoutThread.MAX_TIMEOUT - TimeoutThread.MIN_TIMEOUT;
+        resetTimeout(timeout);
+    }
+
+    private void resetTimeout(int timeout)
+    {
         timeoutLock.lock();
-        timeout = rand.nextInt(MIN_TIMEOUT) + MAX_TIMEOUT - MIN_TIMEOUT;
+        this.timeout = timeout;
         startTime = System.currentTimeMillis();
-        consoleMessage("Setting new Timeout:" + timeout + "ms", 2);
+        //consoleMessage("Setting new Timeout:" + timeout + "ms", 2);
         timeoutLock.unlock();
     }
 
@@ -956,7 +1012,7 @@ public class MulticastServer
         }
     }
 
-    protected void consoleError(String s, int which)
+    public void consoleError(String s, int which)
     {
         //e stands for error
         if (s != null && !s.trim().isEmpty())

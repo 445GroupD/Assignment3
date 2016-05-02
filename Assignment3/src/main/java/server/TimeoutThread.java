@@ -11,6 +11,8 @@ import java.util.Random;
  */
 public class TimeoutThread implements Runnable
 {
+    public static final int MIN_TIMEOUT = 15000;
+    public static final int MAX_TIMEOUT = 30000;
     private final MulticastServer server;
 
     public TimeoutThread(MulticastServer server)
@@ -23,19 +25,14 @@ public class TimeoutThread implements Runnable
     {
         while (!server.isLeader() && !server.getDebugKill())
         {
-            server.consoleMessage("Reseting Timeout", 2);
             server.resetTimeout();
             long timeLeft;
             do {
-
                 timeLeft = System.currentTimeMillis() - server.getStartTime();
-                //server.consoleMessage("Time Left: " + timeLeft, 2);
-           //while(System.currentTimeMillis() - server.getStartTime() < server.getTimeout()){
                 if(server.isLeader() || server.getDebugKill()){
                     server.consoleMessage("Killing Timeout Thread", 2);
                     return;
                 }
-
             } while (timeLeft < server.getTimeout());
 
             server.consoleMessage("Server timed out", 2);
@@ -43,8 +40,6 @@ public class TimeoutThread implements Runnable
             server.changeServerState(MulticastServer.ServerState.CANIDATE);
 
             //start election
-            server.consoleMessage("Inside the candidate run method",2);
-            server.initializeCandidate();
             server.consoleMessage("Sending Vote Requests", 2);
             AppPacket voteRequest = new AppPacket(server.getId(), AppPacket.PacketType.VOTE_REQUEST, server.getLeaderId(),
                     server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, "");

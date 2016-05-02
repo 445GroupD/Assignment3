@@ -23,7 +23,6 @@ public class MulticastServerSender implements Runnable
     {
         while (!server.getDebugKill())
         {
-           // server.consoleMessage("Server State: " + server.getServerState(),2);
             String clientMessageToSend = server.getClientMessageToSend();
             if (clientMessageToSend != null && !clientMessageToSend.isEmpty() && server.isLeader())
             {
@@ -41,7 +40,6 @@ public class MulticastServerSender implements Runnable
                     e.printStackTrace();
                 }
             }
-         //   server.consoleMessage("End of loop, relooping",2);
             //rest();
         }
     }

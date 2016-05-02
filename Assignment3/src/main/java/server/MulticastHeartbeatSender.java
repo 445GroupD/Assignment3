@@ -20,7 +20,6 @@ public class MulticastHeartbeatSender implements Runnable
     @Override
     public void run()
     {
-        lt =System.currentTimeMillis();
         while (server.isLeader() && !server.getDebugKill())
         {
             try
@@ -30,8 +29,6 @@ public class MulticastHeartbeatSender implements Runnable
                 if (server.getHeartbeatDebug())
                 {
                     server.consoleMessage("\nSending Heartbeat" + heartbeatPacket.toString(),2);
-                    server.consoleMessage("time since last heartbeat: "+ (lt - System.currentTimeMillis()),2);
-                    lt= System.currentTimeMillis();
                 }
                 server.getMulticastSocket().send(heartbeatPacket.getDatagram(server.getGroup(), server.getPort()));
                 rest();
