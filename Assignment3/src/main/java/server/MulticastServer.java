@@ -69,7 +69,7 @@ public class MulticastServer
     private JButton serverStatusButton;
     private JButton serverKillButton;
     private JButton serverTimeoutButton;
-    private boolean heartbeatDebug = false;
+    private boolean heartbeatDebug = true;
     private int latestLogIndex = 1;
     private boolean debugKill = false;
 
@@ -516,7 +516,7 @@ public class MulticastServer
     private Thread startHeartbeatThread()
     {
         Thread heartbeat = new Thread(new MulticastHeartbeatSender(this));
-//        heartbeat.start();
+        heartbeat.start();
         consoleMessage("started heartbeat thread", 2);
         return heartbeat;
     }
@@ -1006,7 +1006,6 @@ public class MulticastServer
         timeoutLock.lock();
         this.timeout = timeout;
         startTime = System.currentTimeMillis();
-        //consoleMessage("Setting new Timeout:" + timeout + "ms", 2);
         timeoutLock.unlock();
     }
 
@@ -1016,7 +1015,6 @@ public class MulticastServer
         try
         {
             String take = linkedBlockingClientMessageQueue.take();
-            //System.out.println("TAKE: " + take);
             return take;
         }
         catch (InterruptedException e)
