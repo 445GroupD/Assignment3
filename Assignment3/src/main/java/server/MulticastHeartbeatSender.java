@@ -1,16 +1,19 @@
 package server;
 
+import org.apache.http.HttpException;
 import server.Packet.AppPacket;
+import utils.WebService.RestCaller;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Map;
 
 public class MulticastHeartbeatSender implements Runnable
 {
-    public static final int HEARBEAT_INTERVAL = 3000;
+    public static final int HEARBEAT_INTERVAL = 6000;
     private final MulticastServer server;
     private final Map<Integer, Integer> followerStatusMap;
-
+    long lt;
     public MulticastHeartbeatSender(MulticastServer server)
     {
         this.server = server;
@@ -52,8 +55,26 @@ public class MulticastHeartbeatSender implements Runnable
             }
         }
         // Something like this
-        // getDataFromDBatIndex(smallest+1)
-        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), -1, -1,smallest+1, "data for logIndex " + (smallest+1));
+        String data ="";
+        try
+        {
+            System.out.println("smallest = " + smallest);
+            data =RestCaller.getLogByIndex(server,++smallest+"");
+        }
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        System.out.println("data = " + data);
+        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), -1, -1,smallest, data);
 
     }
 

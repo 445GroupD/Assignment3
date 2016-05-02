@@ -5,13 +5,13 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import server.MulticastServer;
 
@@ -19,9 +19,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
 
 /**
  * Created by lwdthe1 on 3/11/2016.
@@ -54,7 +52,6 @@ public class RestCaller
         server.consoleMessage("Sending Post request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpPost);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
@@ -70,7 +67,6 @@ public class RestCaller
         {
             resultantLogIndex = -1;
         }
-        //System.out.println("Log index: " + resultantLogIndex);
         return resultantLogIndex;
     }
 
@@ -86,15 +82,20 @@ public class RestCaller
         server.consoleMessage("Sending Get request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpGet);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
         JSONObject resultJsonObject = new JSONObject(resultJson);
-
-        String resultantLogIndex;
-        resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+        String resultantLogIndex = "";
+        if(resultJsonObject.has("error"))
+        {
+            server.consoleError(resultJsonObject.getString("errorMessage"),2);
+        }
+        else
+        {
+            resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+        }
         return resultantLogIndex;
     }
 
@@ -110,29 +111,68 @@ public class RestCaller
         server.consoleMessage("Sending Get request to " + restUri, 2);
 
         HttpResponse response = httpClient.execute(httpGet);
-        //System.out.println(server.getId() + " HTTP RESPONSE SL: " + response.getStatusLine());
 
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
         JSONObject resultJsonObject = new JSONObject(resultJson);
 
-        JSONArray logs = null;
-        JSONObject logsContainer = resultJsonObject.has("data") ? resultJsonObject.getJSONObject("data") : null;
-        if(logsContainer != null){
-            logs = logsContainer.has("logs") ? logsContainer.getJSONArray("logs") : null;
-        } else {
-            server.consoleError("Logs container empty: " + resultJson,2);
-        }
+        JSONArray logs = resultJsonObject.has("logs") ? resultJsonObject.getJSONArray("logs") : null;
 
-        Iterator<Object> iterator = logs.iterator();
         List<String> logEntry = new ArrayList<String>();
-        while(iterator.hasNext())
+        if (logs != null)
         {
-            logEntry.add(iterator.next().toString());
+            for (int i=0; i<logs.length(); i++) {
+                JSONObject current = logs.getJSONObject(i);
+                String data = current.getString("data");
+                int id = current.getInt("index");
+                logEntry.add("|"+id+"|"+data+"|");
+            }
+        }
+        else
+        {
+            server.consoleError("logs was null", 2);
         }
 
         return logEntry;
+    }
+
+    public static boolean deleteAll(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Post Header
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId();
+
+        HttpDelete httpDelete = new HttpDelete(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("Sending Delete request to " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpDelete);
+
+        String resultJson = EntityUtils.toString(response.getEntity());
+        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        return true;
+    }
+
+    public static int getLatestIndexNumber(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Get Sequence number
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/lastIndex";
+
+        HttpGet httpGet = new HttpGet(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("Sending Get request to " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpGet);
+
+        String resultJson = EntityUtils.toString(response.getEntity());
+        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        return 1;
     }
 
 

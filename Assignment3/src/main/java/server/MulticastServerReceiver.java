@@ -35,13 +35,19 @@ public class MulticastServerReceiver implements Runnable
                 packet = new DatagramPacket(buf, buf.length, server.getGroup(), server.getPort());
                 server.getMulticastSocket().receive(packet);
                 receivedPacket = new AppPacket(packet.getData());
-                if (server.isLeader())
+                server.updateStateAndLeader(receivedPacket);
+                if(server.filterPacket(receivedPacket))
                 {
-                    server.leaderParse(receivedPacket);
-                }
-                else if (server.isFollower())
-                {
-                    server.followerParse(receivedPacket);
+                    if (server.isLeader())
+                    {
+                        server.leaderParse(receivedPacket);
+                    } else if (server.isFollower())
+                    {
+                        server.followerParse(receivedPacket);
+                    } else if (server.isCandidate())
+                    {
+                        server.candidateParse(receivedPacket);
+                    }
                 }
             }
         }
