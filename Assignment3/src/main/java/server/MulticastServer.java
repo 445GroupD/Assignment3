@@ -855,7 +855,8 @@ public class MulticastServer
 
     public void changeServerState(ServerState nextState)
     {
-        if (nextState == getServerState()) {
+        // A candidate changing to a candidate indicates their candidacy failed and they are starting a new election
+        if (nextState != ServerState.CANIDATE && nextState == getServerState()) {
             return;
         }
 
@@ -876,8 +877,7 @@ public class MulticastServer
                         timeoutThread = startTimeOutThread();
                     }
                 }
-
-                if (nextState == ServerState.CANIDATE)
+                if (nextState == ServerState.CANIDATE) // start new election
                 {
                     voteCount = 1;
                     term++;
