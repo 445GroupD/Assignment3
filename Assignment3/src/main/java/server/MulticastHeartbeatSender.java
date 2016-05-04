@@ -25,6 +25,7 @@ public class MulticastHeartbeatSender implements Runnable
     {
         while (server.isLeader() && !server.getDebugKill())
         {
+            System.out.println("heartbeat");
             try
             {
                 server.getFollowerStatusMap();
