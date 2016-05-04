@@ -1061,6 +1061,11 @@ public class MulticastServer
         return debugKill;
     }
 
+    public void clearFollowerStatusMap()
+    {
+        followerStatusMap.clear();
+    }
+
     public enum ServerState
     {
         LEADER(),
