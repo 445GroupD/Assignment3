@@ -33,7 +33,8 @@ public class TimeoutThread implements Runnable
                     server.consoleMessage("Killing Timeout Thread", 2);
                     return;
                 }
-            } while (timeLeft < server.getTimeout());
+            }
+            while (timeLeft < server.getTimeout());
 
             server.consoleMessage("Server timed out", 2);
             if (server.isLeader()) {return; }

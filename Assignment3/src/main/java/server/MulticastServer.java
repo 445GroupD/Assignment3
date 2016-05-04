@@ -69,7 +69,7 @@ public class MulticastServer
     private JButton serverStatusButton;
     private JButton serverKillButton;
     private JButton serverTimeoutButton;
-    private boolean heartbeatDebug = true;
+    private boolean heartbeatDebug = false;
     private int latestLogIndex = 1;
     private boolean debugKill = false;
 
@@ -88,12 +88,15 @@ public class MulticastServer
         group = InetAddress.getByName(GROUP_IP);
         multicastSocket.joinGroup(group);
 
-        launchGUI(latch,x,y);
+        launchGUI(latch, x, y);
 
         outgoing = startSendingThread();
         incoming = startReceivingThread();
         heartbeat = startHeartbeatThread();
-        if(!this.isLeader()){ timeoutThread = startTimeOutThread();}
+        if (!this.isLeader())
+        {
+            timeoutThread = startTimeOutThread();
+        }
 
         try
         {
@@ -109,7 +112,7 @@ public class MulticastServer
         }
     }
 
-    private void launchGUI(CountDownLatch latch,int x, int y)
+    private void launchGUI(CountDownLatch latch, int x, int y)
     {
         //1. Create the frame.
         String isLeaderDisplay = serverId == leaderId ? "*L* " : "";
@@ -137,7 +140,7 @@ public class MulticastServer
         scrollpane = new JScrollPane(scrollPanePanel);
         //add the scroll pane to the frame's content pane.
         frame.getContentPane().add(scrollpane, BorderLayout.CENTER);
-        frame.setLocation(x,y);
+        frame.setLocation(x, y);
 
         //show the frame
         frame.setVisible(true);
@@ -375,7 +378,7 @@ public class MulticastServer
             }
         });
 
-        final JButton heartbeatButton = new JButton("heartBeat "+ heartbeatDebug);
+        final JButton heartbeatButton = new JButton("heartBeat " + heartbeatDebug);
         heartbeatButton.setSize(50, 100);
         heartbeatButton.addActionListener(new ActionListener()
         {
@@ -383,7 +386,7 @@ public class MulticastServer
             public void actionPerformed(ActionEvent e)
             {
                 heartbeatDebug = !heartbeatDebug;
-                heartbeatButton.setText("heartbeat " +heartbeatDebug);
+                heartbeatButton.setText("heartbeat " + heartbeatDebug);
             }
         });
 
@@ -446,6 +449,7 @@ public class MulticastServer
         westControlsPanel.add(serverStatusButton, BorderLayout.WEST);
         westControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
 
+//        centralControlsPanel.add(deleteButton,BorderLayout.WEST);
         centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         centralControlsPanel.add(serverKillButton, BorderLayout.EAST);
 
@@ -467,6 +471,7 @@ public class MulticastServer
         try
         {
             RestCaller.deleteAll(this);
+            latestLogIndex = 0;
         }
         catch (URISyntaxException e)
         {
@@ -516,7 +521,7 @@ public class MulticastServer
     private Thread startHeartbeatThread()
     {
         Thread heartbeat = new Thread(new MulticastHeartbeatSender(this));
-        heartbeat.start();
+//        heartbeat.start();
         consoleMessage("started heartbeat thread", 2);
         return heartbeat;
     }
@@ -538,13 +543,15 @@ public class MulticastServer
         consoleMessage("started incoming thread", 2);
         return incoming;
     }
+
     private Thread startTimeOutThread()
     {
         Thread timeOut = new Thread(new TimeoutThread(this));
         timeOut.start();
-        consoleMessage("started timeout thread",2);
+        consoleMessage("started timeout thread", 2);
         return timeOut;
     }
+
     private void debugStatus()
     {
         try
@@ -607,7 +614,10 @@ public class MulticastServer
         return getServerState().equals(ServerState.LEADER);
     }
 
-    public boolean isCandidate(){return getServerState().equals(ServerState.CANIDATE);}
+    public boolean isCandidate()
+    {
+        return getServerState().equals(ServerState.CANIDATE);
+    }
 
     public Map<String, AppPacket> getIncomingLocalStorage()
     {
@@ -639,8 +649,9 @@ public class MulticastServer
             {
                 //consoleMessage("Received Valid Packet", 2);
                 resetTimeout();
-                if(receivedPacket.getTerm() > term){
-                    term = (int)receivedPacket.getTerm();
+                if (receivedPacket.getTerm() > term)
+                {
+                    term = (int) receivedPacket.getTerm();
                 }
                 switch (receivedPacket.getType())
                 {
@@ -667,13 +678,15 @@ public class MulticastServer
                         parseHeartbeat(receivedPacket);
                         break;
                 }
-            } else{
+            }
+            else
+            {
                 switch (receivedPacket.getType())
                 {
                     case VOTE_REQUEST:
                     {
                         consoleMessage("Vote Request has been recieved from server " + receivedPacket
-                                .getServerId() + " for term " + receivedPacket.getTerm(),2);
+                                .getServerId() + " for term " + receivedPacket.getTerm(), 2);
                         if (receivedPacket.getTerm() > term && lastVotedElection < receivedPacket.getTerm())
                         {
                             leaderId = -1;
@@ -682,7 +695,7 @@ public class MulticastServer
                                     leaderId, lastVotedElection, groupCount, 0, 0, Integer.toString(receivedPacket.getServerId()));
                             multicastSocket.send(votePacket.getDatagram(group, PORT));
                             consoleMessage("voting in term " + term + " for server " + receivedPacket
-                                    .getServerId(),2);
+                                    .getServerId(), 2);
                         }
                         break;
                     }
@@ -727,16 +740,16 @@ public class MulticastServer
                 String data = new String(receivedPacket.getData());
                 data = data.trim();
                 consoleMessage("Vote recieved from server: " + receivedPacket.getServerId() + " for server: " +
-                        data,2);
+                        data, 2);
                 if (receivedPacket.getTerm() == term && serverId == Integer.parseInt(data))
                 {
-                    consoleMessage("vote accepted for term: " + term,2);
+                    consoleMessage("vote accepted for term: " + term, 2);
                     voteCount++;
-                    consoleMessage("Current Vote count: " + voteCount,2);
+                    consoleMessage("Current Vote count: " + voteCount, 2);
                     if (voteCount >= getMajority() + 1)
                     {
-                        consoleMessage("Majority vote: " + voteCount,2);
-                        consoleMessage("Election won",2);
+                        consoleMessage("Majority vote: " + voteCount, 2);
+                        consoleMessage("Election won", 2);
                         changeServerState(ServerState.LEADER);
                     }
                 }
@@ -762,20 +775,25 @@ public class MulticastServer
 
     private void parseHeartbeat(AppPacket receivedPacket) throws IOException
     {
+
         try
         {
-            if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+            if (!receivedPacket.getData().equals(""))
             {
+                if (receivedPacket.getLogIndex() == latestLogIndex + 1)
+                {
 
-                latestLogIndex = receivedPacket.getLogIndex();
-                RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
-            }
-            System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
-            AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
-            multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
-            if (heartbeatDebug)
-            {
-                consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+                    latestLogIndex = receivedPacket.getLogIndex();
+                    RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
+                }
+                System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
+                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+
+                if (heartbeatDebug)
+                {
+                    consoleMessage("Send HeartbeatAck: with latest index " + getLatestLogIndex(), 2);
+                }
+                multicastSocket.send(heartbeatAckPacket.getDatagram(group, PORT));
             }
         }
         catch (URISyntaxException e)
@@ -801,6 +819,7 @@ public class MulticastServer
     {
         try
         {
+            System.out.println("leader parse " + serverId);
             switch (receivedPacket.getType())
             {
                 case ACK:
@@ -855,21 +874,23 @@ public class MulticastServer
 
     public void changeServerState(ServerState nextState)
     {
-        if (nextState == getServerState()) {
+        if (nextState == getServerState())
+        {
             return;
         }
 
         try
         {
-            if(serverStateLock.tryLock(100, TimeUnit.MILLISECONDS))
+            if (serverStateLock.tryLock(100, TimeUnit.MILLISECONDS))
             {
-                consoleMessage("changing state to: " + nextState,2);
+                consoleMessage("changing state to: " + nextState, 2);
                 if (nextState == ServerState.LEADER)
                 {
                     leaderId = serverId;
                     timeoutThread = null;
                     heartbeat = startHeartbeatThread();
-                } else
+                }
+                else
                 {
                     if (timeoutThread == null)
                     {
@@ -882,7 +903,8 @@ public class MulticastServer
                     voteCount = 1;
                     term++;
                     leaderId = -1;
-                } else
+                }
+                else
                 {
                     voteCount = 0;
                 }
@@ -891,9 +913,10 @@ public class MulticastServer
             }
             else
             {
-                consoleMessage("Thread locked, cannot change state",2);
+                consoleMessage("Thread locked, cannot change state", 2);
             }
-        } catch (InterruptedException e)
+        }
+        catch (InterruptedException e)
         {
             e.printStackTrace();
         }
@@ -929,9 +952,13 @@ public class MulticastServer
         return serverId;
     }
 
-    public int getTimeout() { return timeout; }
+    public int getTimeout()
+    {
+        return timeout;
+    }
 
-    public long getStartTime() {
+    public long getStartTime()
+    {
         timeoutLock.lock();
         long start = startTime;
         timeoutLock.unlock();
@@ -961,20 +988,25 @@ public class MulticastServer
     public int getLatestLogIndex()
     {
         return latestLogIndex;
-    };
+    }
+
+    ;
 
     public boolean filterPacket(AppPacket packet)
     {
         if (packet.getServerId() == serverId) /* Filter packets from itself */
         {
             return false;
-        } else if (packet.getTerm() < term) /* Packet from obsolete term */
+        }
+        else if (packet.getTerm() < term) /* Packet from obsolete term */
         {
             return false;
-        } else if (packet.getTerm() == term)
+        }
+        else if (packet.getTerm() == term)
         {
             return true;
-        } else /* Packet.term > termNum: A new term has begun.*/
+        }
+        else /* Packet.term > termNum: A new term has begun.*/
         {
             if (leaderId == -1) /* We don't know the leader of the current term so we accept all packets by
                 default */
