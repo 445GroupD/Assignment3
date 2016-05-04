@@ -766,7 +766,6 @@ public class MulticastServer
         {
             if (receivedPacket.getLogIndex() == latestLogIndex + 1)
             {
-
                 latestLogIndex = receivedPacket.getLogIndex();
                 RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
             }
@@ -805,7 +804,6 @@ public class MulticastServer
             {
                 case ACK:
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
-
                     int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
                     //make sure the log index returned from committing is valid
                     if (committedLogIndex > -1)
@@ -855,7 +853,8 @@ public class MulticastServer
 
     public void changeServerState(ServerState nextState)
     {
-        if (nextState == getServerState()) {
+        if (nextState == getServerState())
+        {
             return;
         }
 
