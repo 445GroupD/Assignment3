@@ -7,15 +7,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8ae2b96f-b703-47a5-b00a-3005f92de2de" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Assignment3.iml" afterPath="$PROJECT_DIR$/Assignment3.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/Main.java" afterPath="$PROJECT_DIR$/src/main/java/Main.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/server/MulticastHeartbeatSender.java" afterPath="$PROJECT_DIR$/src/main/java/server/MulticastHeartbeatSender.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/server/MulticastServer.java" afterPath="$PROJECT_DIR$/src/main/java/server/MulticastServer.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/server/MulticastServerReceiver.java" afterPath="$PROJECT_DIR$/src/main/java/server/MulticastServerReceiver.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/server/TimeoutThread.java" afterPath="$PROJECT_DIR$/src/main/java/server/TimeoutThread.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/java/utils/WebService/RestCaller.java" afterPath="$PROJECT_DIR$/src/main/java/utils/WebService/RestCaller.java" />
     </list>
     <ignored path="Assignment3.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -63,16 +55,18 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="MulticastServer.java" pinned="false" current-in-tab="false">
+      <file leaf-file-name="MulticastServer.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServer.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="11.551724">
-              <caret line="524" column="19" selection-start-line="524" selection-start-column="19" selection-end-line="524" selection-end-column="19" />
+            <state vertical-scroll-proportion="0.46167558">
+              <caret line="524" column="15" selection-start-line="524" selection-start-column="15" selection-end-line="524" selection-end-column="15" />
               <folding>
-                <element signature="e#19287#19288#0" expanded="true" />
-                <element signature="e#19355#19356#0" expanded="true" />
-                <element signature="e#31962#31963#0" expanded="true" />
-                <element signature="e#31992#31993#0" expanded="true" />
+                <element signature="e#6781#6782#0" expanded="true" />
+                <element signature="e#6845#6846#0" expanded="true" />
+                <element signature="e#19285#19286#0" expanded="true" />
+                <element signature="e#19353#19354#0" expanded="true" />
+                <element signature="e#32127#32128#0" expanded="true" />
+                <element signature="e#32157#32158#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -131,11 +125,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="MulticastServerReceiver.java" pinned="false" current-in-tab="true">
+      <file leaf-file-name="MulticastServerReceiver.java" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServerReceiver.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.8779661">
-              <caret line="46" column="37" selection-start-line="46" selection-start-column="37" selection-end-line="46" selection-end-column="37" />
+            <state vertical-scroll-proportion="0.0">
+              <caret line="34" column="42" selection-start-line="34" selection-start-column="42" selection-end-line="34" selection-end-column="42" />
               <folding />
             </state>
           </provider>
@@ -1064,10 +1058,12 @@
         <state vertical-scroll-proportion="0.0">
           <caret line="805" column="57" selection-start-line="805" selection-start-column="57" selection-end-line="805" selection-end-column="57" />
           <folding>
-            <element signature="e#19287#19288#0" expanded="true" />
-            <element signature="e#19355#19356#0" expanded="true" />
-            <element signature="e#31962#31963#0" expanded="true" />
-            <element signature="e#31992#31993#0" expanded="true" />
+            <element signature="e#6781#6782#0" expanded="true" />
+            <element signature="e#6845#6846#0" expanded="true" />
+            <element signature="e#19285#19286#0" expanded="true" />
+            <element signature="e#19353#19354#0" expanded="true" />
+            <element signature="e#32127#32128#0" expanded="true" />
+            <element signature="e#32157#32158#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1109,10 +1105,12 @@
         <state vertical-scroll-proportion="0.0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#19287#19288#0" expanded="true" />
-            <element signature="e#19355#19356#0" expanded="true" />
-            <element signature="e#31962#31963#0" expanded="true" />
-            <element signature="e#31992#31993#0" expanded="true" />
+            <element signature="e#6781#6782#0" expanded="true" />
+            <element signature="e#6845#6846#0" expanded="true" />
+            <element signature="e#19285#19286#0" expanded="true" />
+            <element signature="e#19353#19354#0" expanded="true" />
+            <element signature="e#32127#32128#0" expanded="true" />
+            <element signature="e#32157#32158#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1154,10 +1152,12 @@
         <state vertical-scroll-proportion="0.0">
           <caret line="805" column="57" selection-start-line="805" selection-start-column="57" selection-end-line="805" selection-end-column="57" />
           <folding>
-            <element signature="e#19287#19288#0" expanded="true" />
-            <element signature="e#19355#19356#0" expanded="true" />
-            <element signature="e#31962#31963#0" expanded="true" />
-            <element signature="e#31992#31993#0" expanded="true" />
+            <element signature="e#6781#6782#0" expanded="true" />
+            <element signature="e#6845#6846#0" expanded="true" />
+            <element signature="e#19285#19286#0" expanded="true" />
+            <element signature="e#19353#19354#0" expanded="true" />
+            <element signature="e#32127#32128#0" expanded="true" />
+            <element signature="e#32157#32158#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1206,10 +1206,12 @@
         <state vertical-scroll-proportion="0.0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#19287#19288#0" expanded="true" />
-            <element signature="e#19355#19356#0" expanded="true" />
-            <element signature="e#31962#31963#0" expanded="true" />
-            <element signature="e#31992#31993#0" expanded="true" />
+            <element signature="e#6781#6782#0" expanded="true" />
+            <element signature="e#6845#6846#0" expanded="true" />
+            <element signature="e#19285#19286#0" expanded="true" />
+            <element signature="e#19353#19354#0" expanded="true" />
+            <element signature="e#32127#32128#0" expanded="true" />
+            <element signature="e#32157#32158#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -1279,24 +1281,26 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServer.java">
+    <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServerReceiver.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="11.551724">
-          <caret line="524" column="19" selection-start-line="524" selection-start-column="19" selection-end-line="524" selection-end-column="19" />
-          <folding>
-            <element signature="e#19287#19288#0" expanded="true" />
-            <element signature="e#19355#19356#0" expanded="true" />
-            <element signature="e#31962#31963#0" expanded="true" />
-            <element signature="e#31992#31993#0" expanded="true" />
-          </folding>
+        <state vertical-scroll-proportion="0.0">
+          <caret line="34" column="42" selection-start-line="34" selection-start-column="42" selection-end-line="34" selection-end-column="42" />
+          <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServerReceiver.java">
+    <entry file="file://$PROJECT_DIR$/src/main/java/server/MulticastServer.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.8779661">
-          <caret line="46" column="37" selection-start-line="46" selection-start-column="37" selection-end-line="46" selection-end-column="37" />
-          <folding />
+        <state vertical-scroll-proportion="0.46167558">
+          <caret line="524" column="15" selection-start-line="524" selection-start-column="15" selection-end-line="524" selection-end-column="15" />
+          <folding>
+            <element signature="e#6781#6782#0" expanded="true" />
+            <element signature="e#6845#6846#0" expanded="true" />
+            <element signature="e#19285#19286#0" expanded="true" />
+            <element signature="e#19353#19354#0" expanded="true" />
+            <element signature="e#32127#32128#0" expanded="true" />
+            <element signature="e#32157#32158#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
