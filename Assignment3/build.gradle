@@ -17,5 +17,4 @@ dependencies {
     compile 'org.apache.httpcomponents:httpclient:4.0-alpha4'
     compile 'org.json:json:20160212'
     compile 'com.miglayout:miglayout-swing:4.2'
-
 }
