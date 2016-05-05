@@ -40,6 +40,7 @@ public class MulticastServerReceiver implements Runnable
                 {
                     if (server.isLeader())
                     {
+                        System.out.println("calling leader parse " + server.getId());
                         server.leaderParse(receivedPacket);
                     } else if (server.isFollower())
                     {

@@ -17,7 +17,7 @@ public class AppPacket
     private final PacketType type;
     private final int leaderId;
     private final long term;
-    private final long member;
+    private final long highest;
     private final byte[] data;
 
     private final int sequenceNumber;
@@ -31,7 +31,7 @@ public class AppPacket
         this.type = PacketType.fromInt(AppUtils.bytesToInt(ArrayUtils.subarray(data, 4, 8)));
         this.leaderId = AppUtils.bytesToInt(ArrayUtils.subarray(data, 8, 12));
         this.term = AppUtils.bytesToLong(ArrayUtils.subarray(data, 12, 20));
-        this.member = AppUtils.bytesToLong(ArrayUtils.subarray(data, 20, 28));
+        this.highest = AppUtils.bytesToLong(ArrayUtils.subarray(data, 20, 28));
         this.sequenceNumber = AppUtils.bytesToInt(ArrayUtils.subarray(data, 28, 32));
         this.logIndex = AppUtils.bytesToInt(ArrayUtils.subarray(data, 32, 36));
         this.data = ArrayUtils.subarray(data, 36, data.length);
@@ -39,13 +39,13 @@ public class AppPacket
     }
 
     //Sender
-    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int sequenceNumber, int logIndex, String data)
+    public AppPacket(int serverId, PacketType type, int leaderId, long term, long highest, int sequenceNumber, int logIndex, String data)
     {
         this.serverId = serverId;
         this.type = type;
         this.leaderId = leaderId;
         this.term = term;
-        this.member = member;
+        this.highest = highest;
         this.logIndex = logIndex;
         this.sequenceNumber = sequenceNumber;
 
@@ -78,7 +78,7 @@ public class AppPacket
         byte[] datagramArray = ArrayUtils.addAll(AppUtils.intToBytes(serverId), AppUtils.intToBytes(type.getIdent()));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(leaderId));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(term));
-        datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(member));
+        datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(highest));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(sequenceNumber));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(logIndex));
         datagramArray = ArrayUtils.addAll(datagramArray, data);
@@ -110,9 +110,9 @@ public class AppPacket
         return term;
     }
 
-    public long getMember()
+    public long getHighest()
     {
-        return member;
+        return highest;
     }
 
     public int getSequenceNumber()

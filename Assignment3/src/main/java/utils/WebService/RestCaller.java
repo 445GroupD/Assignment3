@@ -12,6 +12,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import server.MulticastServer;
 
@@ -35,6 +36,7 @@ public class RestCaller
 
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
+        System.out.println("logIndex = " + logIndex);
         String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log;
 
         HttpPost httpPost = new HttpPost(restUri);
@@ -72,6 +74,7 @@ public class RestCaller
 
     public static String getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
     {
+
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex;
@@ -86,15 +89,29 @@ public class RestCaller
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
-        JSONObject resultJsonObject = new JSONObject(resultJson);
         String resultantLogIndex = "";
-        if(resultJsonObject.has("error"))
+        try
         {
-            server.consoleError(resultJsonObject.getString("errorMessage"),2);
+            if (!resultJson.equals(""))
+            {
+
+                System.out.println("resultJson = " + resultJson);
+                JSONObject resultJsonObject = new JSONObject(resultJson);
+
+                if (resultJsonObject.has("error"))
+                {
+                    server.consoleError(resultJsonObject.getString("errorMessage"), 2);
+                }
+                else
+                {
+                    resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+                }
+            }
+            return resultantLogIndex;
         }
-        else
+        catch (JSONException e)
         {
-            resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+            server.consoleError("resultJson = " + resultJson,2);
         }
         return resultantLogIndex;
     }
@@ -122,11 +139,12 @@ public class RestCaller
         List<String> logEntry = new ArrayList<String>();
         if (logs != null)
         {
-            for (int i=0; i<logs.length(); i++) {
+            for (int i = 0; i < logs.length(); i++)
+            {
                 JSONObject current = logs.getJSONObject(i);
                 String data = current.getString("data");
                 int id = current.getInt("index");
-                logEntry.add("|"+id+"|"+data+"|");
+                logEntry.add("|" + id + "|" + data + "|");
             }
         }
         else
@@ -150,11 +168,31 @@ public class RestCaller
 
         HttpResponse response = httpClient.execute(httpDelete);
 
-        String resultJson = EntityUtils.toString(response.getEntity());
-        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+//        String resultJson = EntityUtils.toString(response.getEntity());
+//        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
         return true;
     }
+
+    public static boolean rollBack(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Post Header
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + server.getLatestLogIndex();
+
+        HttpDelete httpDelete = new HttpDelete(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("RollBack requested:  " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpDelete);
+
+//        String resultJson = EntityUtils.toString(response.getEntity());
+//        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        return true;
+    }
+
 
     public static int getLatestIndexNumber(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
@@ -172,7 +210,7 @@ public class RestCaller
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
-        return 1;
+        return new JSONObject(resultJson).getInt("seq");
     }
 
 
