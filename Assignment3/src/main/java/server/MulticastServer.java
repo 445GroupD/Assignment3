@@ -72,6 +72,7 @@ public class MulticastServer
     private boolean heartbeatDebug = false;
     private int latestLogIndex = 1;
     private boolean debugKill = false;
+    private JFrame frame;
 
 
     public MulticastServer(int serverId, int leaderId, CountDownLatch latch, int x, int y) throws IOException
@@ -88,15 +89,6 @@ public class MulticastServer
         group = InetAddress.getByName(GROUP_IP);
         multicastSocket.joinGroup(group);
 
-        launchGUI(latch, x, y);
-
-        outgoing = startSendingThread();
-        incoming = startReceivingThread();
-        heartbeat = startHeartbeatThread();
-        if (!this.isLeader())
-        {
-            timeoutThread = startTimeOutThread();
-        }
 
         try
         {
@@ -110,13 +102,25 @@ public class MulticastServer
         {
             e.printStackTrace();
         }
+
+        launchGUI(latch, x, y);
+    }
+
+    public void init()
+    {
+        outgoing = startSendingThread();
+        incoming = startReceivingThread();
+        heartbeat = startHeartbeatThread();
+        if (!this.isLeader())
+        {
+            timeoutThread = startTimeOutThread();
+        }
     }
 
     private void launchGUI(CountDownLatch latch, int x, int y)
     {
         //1. Create the frame.
-        String isLeaderDisplay = serverId == leaderId ? "*L* " : "";
-        JFrame frame = new JFrame(isLeaderDisplay + "Server #" + serverId + " | " + leaderId);
+        frame = new JFrame();
         frame.setSize(925, 500);
 
         //2. Optional: What happens when the frame closes?
@@ -145,6 +149,7 @@ public class MulticastServer
         //show the frame
         frame.setVisible(true);
         //let the other servers start
+        updateGUITitle();
         latch.countDown();
     }
 
@@ -367,7 +372,7 @@ public class MulticastServer
                /* if(e.toString().contains("javax.swing.text.AbstractDocument")) {
                     consolePrompt("What do you want to do: ");
                 }*/
-                serverConsole.setCaretPosition(userConsole.getDocument().getLength());
+//                serverConsole.setCaretPosition(userConsole.getDocument().getLength());
                 scrollToBottom(scrollpane);
             }
 
@@ -404,6 +409,7 @@ public class MulticastServer
                         debugKill = true;
                         serverKillButton.setText("Restart");
                         multicastSocket.leaveGroup(group);
+                        updateGUITitle();
 
                     }
                     else
@@ -689,6 +695,7 @@ public class MulticastServer
                                 .getServerId() + " for term " + receivedPacket.getTerm(), 2);
                         if (receivedPacket.getTerm() > term && lastVotedElection < receivedPacket.getTerm())
                         {
+                            resetTimeout();
                             leaderId = -1;
                             lastVotedElection = (int) receivedPacket.getTerm();
                             AppPacket votePacket = new AppPacket(serverId, AppPacket.PacketType.VOTE,
@@ -875,7 +882,8 @@ public class MulticastServer
     public void changeServerState(ServerState nextState)
     {
         // A candidate changing to a candidate indicates their candidacy failed and they are starting a new election
-        if (nextState != ServerState.CANIDATE && nextState == getServerState()) {
+        if (nextState != ServerState.CANIDATE && nextState == getServerState())
+        {
             return;
         }
 
@@ -886,9 +894,12 @@ public class MulticastServer
                 consoleMessage("changing state to: " + nextState, 2);
                 if (nextState == ServerState.LEADER)
                 {
+                    consoleError("Became Leader", 1);
                     leaderId = serverId;
                     timeoutThread = null;
                     heartbeat = startHeartbeatThread();
+                    consoleError("Leader after heartbeat", 1);
+
                 }
                 else
                 {
@@ -899,15 +910,18 @@ public class MulticastServer
                 }
                 if (nextState == ServerState.CANIDATE) // start new election
                 {
+                    consoleError("Became Candidate", 1);
                     voteCount = 1;
                     term++;
                     leaderId = -1;
                 }
-                else
+                else if (nextState == ServerState.FOLLOWER)
                 {
+                    consoleError("Became Follower", 1);
                     voteCount = 0;
                 }
                 serverState = nextState;
+                updateGUITitle();
                 serverStateLock.unlock();
             }
             else
@@ -1020,15 +1034,36 @@ public class MulticastServer
     {
         if (packet.getTerm() > term) /* A new term has begun. Update leader and term fields accordingly */
         {
+
             consoleMessage("Received packet of higher term. Term num: " + packet.getTerm() + " From Server: " + packet.getServerId(), 2);
             leaderId = (int) packet.getLeaderId();
             changeServerState(ServerState.FOLLOWER);
+            updateGUITitle();
+
+        }
+    }
+
+    private void updateGUITitle()
+    {
+        consoleMessage(serverState.toString(), 1);
+        if (debugKill)
+        {
+            frame.setTitle("*DEAD* Server #" + serverId + " | " + leaderId);
+        }
+        else if (serverState == ServerState.LEADER)
+        {
+            frame.setTitle("*Leader* Server #" + serverId + " | " + leaderId);
+        }
+        else
+        {
+            frame.setTitle("Server #" + serverId + " | " + leaderId);
         }
     }
 
     public void resetTimeout()
     {
-        int timeout = rand.nextInt(TimeoutThread.MIN_TIMEOUT) + TimeoutThread.MAX_TIMEOUT - TimeoutThread.MIN_TIMEOUT;
+        int timeout = rand.nextInt(TimeoutThread.MAX_TIMEOUT - TimeoutThread.MIN_TIMEOUT) + TimeoutThread.MIN_TIMEOUT;
+//        consoleMessage("timeout = " + timeout, 1);
         resetTimeout(timeout);
     }
 
@@ -1066,6 +1101,7 @@ public class MulticastServer
         followerStatusMap.clear();
     }
 
+
     public enum ServerState
     {
         LEADER(),
@@ -1075,34 +1111,41 @@ public class MulticastServer
 
     public void consoleMessage(String s, int which)
     {
-        if (s != null && !s.trim().isEmpty())
+        if (userConsole != null && serverConsole != null)
         {
-            //m stands for message
-            switch (which)
+            if (s != null && !s.trim().isEmpty())
             {
-                case 1:
-                    userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
-                    break;
-                case 2:
-                    serverConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
-                    break;
+                //m stands for message
+                switch (which)
+                {
+                    case 1:
+                        userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
+                        break;
+                    case 2:
+                        serverConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|m> " + s);
+                        break;
+                }
             }
         }
     }
 
     public void consoleError(String s, int which)
     {
-        //e stands for error
-        if (s != null && !s.trim().isEmpty())
+
+        if (userConsole != null && serverConsole != null)
         {
-            switch (which)
+            //e stands for error
+            if (s != null && !s.trim().isEmpty())
             {
-                case 1:
-                    userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
-                    break;
-                case 2:
-                    serverConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
-                    break;
+                switch (which)
+                {
+                    case 1:
+                        userConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
+                        break;
+                    case 2:
+                        serverConsole.append("\n" + getCurrentDateTime(null) + " #" + serverId + "|e> " + s);
+                        break;
+                }
             }
         }
     }
