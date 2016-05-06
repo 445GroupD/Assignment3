@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class MulticastHeartbeatSender implements Runnable
 {
-    public static final int HEARBEAT_INTERVAL = 6000;
+    public static final int HEARBEAT_INTERVAL = 450;
     private final MulticastServer server;
     private final Map<Integer, Integer> followerStatusMap;
     long lt;
