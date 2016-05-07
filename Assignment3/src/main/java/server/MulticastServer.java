@@ -793,6 +793,10 @@ public class MulticastServer
                     latestLogIndex = receivedPacket.getLogIndex();
                     RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
                 }
+                else if(receivedPacket.getHighest() < latestLogIndex){
+                    latestLogIndex = (int) receivedPacket.getHighest();
+                    RestCaller.rollBack(this);
+                }
                 System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
                 AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
 
