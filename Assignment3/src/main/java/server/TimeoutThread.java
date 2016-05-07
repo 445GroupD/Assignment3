@@ -12,7 +12,7 @@ import java.util.Random;
 public class TimeoutThread implements Runnable
 {
     public static final int MIN_TIMEOUT = 1300;
-    public static final int MAX_TIMEOUT = 1500;
+    public static final int MAX_TIMEOUT = 2600;
     private final MulticastServer server;
 
     public TimeoutThread(MulticastServer server)
@@ -43,7 +43,7 @@ public class TimeoutThread implements Runnable
             //start election
             server.consoleMessage("Sending Vote Requests", 2);
             AppPacket voteRequest = new AppPacket(server.getId(), AppPacket.PacketType.VOTE_REQUEST, server.getLeaderId(),
-                    server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, "");
+                    server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,AppPacket.PacketType.VOTE_REQUEST.ordinal(), "");
 
             try
             {

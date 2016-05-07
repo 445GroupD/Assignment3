@@ -24,6 +24,10 @@ public class AppPacket
 
     private final int logIndex;
 
+
+
+    private final int dataType;
+
     //Receiver
     public AppPacket(byte[] data)
     {
@@ -34,12 +38,13 @@ public class AppPacket
         this.highest = AppUtils.bytesToLong(ArrayUtils.subarray(data, 20, 28));
         this.sequenceNumber = AppUtils.bytesToInt(ArrayUtils.subarray(data, 28, 32));
         this.logIndex = AppUtils.bytesToInt(ArrayUtils.subarray(data, 32, 36));
-        this.data = ArrayUtils.subarray(data, 36, data.length);
+        this.dataType = AppUtils.bytesToInt(ArrayUtils.subarray(data, 36, 40));
+        this.data = ArrayUtils.subarray(data, 40, data.length);
         headerSize = 0;
     }
 
     //Sender
-    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int sequenceNumber, int logIndex, String data)
+    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int sequenceNumber, int logIndex, int dataType ,String data)
     {
         this.serverId = serverId;
         this.type = type;
@@ -48,6 +53,7 @@ public class AppPacket
         this.highest = member;
         this.logIndex = logIndex;
         this.sequenceNumber = sequenceNumber;
+        this.dataType = dataType;
 
         headerSize = Integer.BYTES + Integer.BYTES + Integer.BYTES + Long.BYTES + Long.BYTES;
         this.data = fill(data);
@@ -81,6 +87,7 @@ public class AppPacket
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.longToBytes(highest));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(sequenceNumber));
         datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(logIndex));
+        datagramArray = ArrayUtils.addAll(datagramArray, AppUtils.intToBytes(dataType));
         datagramArray = ArrayUtils.addAll(datagramArray, data);
         return new DatagramPacket(datagramArray, datagramArray.length, address, port);
     }
@@ -98,6 +105,11 @@ public class AppPacket
     public PacketType getType()
     {
         return type;
+    }
+
+    public int getDataType()
+    {
+        return dataType;
     }
 
     public long getLeaderId()
@@ -127,9 +139,11 @@ public class AppPacket
 
     /**
      * Returns a trimmed string representation of the data in this packet.
+     *
      * @return
      */
-    public String getReadableData() {
+    public String getReadableData()
+    {
         return new String(getData()).trim();
     }
 
@@ -233,6 +247,18 @@ public class AppPacket
                 throw new AssertionError("incorrect type Identifier received : " + ident);
             }
             return returnType;
+        }
+
+        public static PacketType fromString(String ident)
+        {
+            for (PacketType current :PacketType.values())
+            {
+                if(ident.equals(current.toString()))
+                {
+                    return current;
+                }
+            }
+            return null;
         }
 
         public int getIdent()
