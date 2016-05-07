@@ -24,7 +24,7 @@ public class MulticastServerSender implements Runnable
         while (!server.getDebugKill())
         {
             String clientMessageToSend = server.getClientMessageToSend();
-            if (clientMessageToSend != null && !clientMessageToSend.isEmpty() && server.isLeader())
+            if (clientMessageToSend != null && !clientMessageToSend.isEmpty())
             {
                 try
                 {

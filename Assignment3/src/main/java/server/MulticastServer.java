@@ -421,6 +421,7 @@ public class MulticastServer
                         outgoing = startSendingThread();
                         incoming = startReceivingThread();
                         heartbeat = startHeartbeatThread();
+                        timeoutThread = startTimeOutThread();
                     }
                 }
                 catch (IOException e1)
@@ -832,6 +833,7 @@ public class MulticastServer
         try
         {
             System.out.println("leader parse " + serverId);
+            System.out.println("leader parse " + receivedPacket.getReadableData());
             switch (receivedPacket.getType())
             {
                 case ACK:
@@ -867,6 +869,14 @@ public class MulticastServer
                     {
                         consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(), 2);
                     }
+                    break;
+                case COMMENT:
+                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, receivedPacket.getReadableData());
+                    getOutgoingLocalStorage().put(redirectPacket.getSequenceNumber(), new LeaderPacket(redirectPacket));
+
+                    consoleMessage("Sending " + redirectPacket.toString(), 2);
+                    getMulticastSocket().send(redirectPacket.getDatagram(getGroup(), getPort()));
+                    clearOutgoingData();
                     break;
             }
         }

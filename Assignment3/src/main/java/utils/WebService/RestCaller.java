@@ -178,12 +178,12 @@ public class RestCaller
     {
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
-        String restUri = REST_API_URL + "/logs/" + server.getId() + server.getLatestLogIndex();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" +server.getLatestLogIndex();
 
         HttpDelete httpDelete = new HttpDelete(restUri);
 
         // Execute HTTP Post Request
-        server.consoleMessage("RollBack requested:  " + restUri, 2);
+        server.consoleMessage("RollBack requested:  " + restUri, 1);
 
         HttpResponse response = httpClient.execute(httpDelete);
 
