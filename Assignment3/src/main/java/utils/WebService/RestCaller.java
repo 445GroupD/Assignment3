@@ -1,5 +1,6 @@
 package utils.WebService;
 
+import javafx.util.Pair;
 import org.apache.http.HttpException;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -15,6 +16,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import server.MulticastServer;
+import server.Packet.AppPacket;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -30,14 +32,14 @@ public class RestCaller
     private static final String TAG = "SeenRestCaller";
     private static final String REST_API_URL = "https://c445a3.herokuapp.com";
 
-    public static int postLog(MulticastServer server, String logIndex, String log) throws URISyntaxException, HttpException, IOException
+    public static int postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
     {
         log = URLEncoder.encode(log, "UTF-8");
 
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
-        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log;
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString();
 
         HttpPost httpPost = new HttpPost(restUri);
         httpPost.setHeader("Content-type", "application/x-www-form-urlencoded");
@@ -72,7 +74,7 @@ public class RestCaller
         return resultantLogIndex;
     }
 
-    public static String getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
+    public static Pair<String,AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
     {
 
         // Create a new HttpClient and Post Header
@@ -106,14 +108,15 @@ public class RestCaller
                 {
                     resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
                 }
+                return new Pair<String, AppPacket.PacketType>(resultantLogIndex, AppPacket.PacketType.fromString(resultJsonObject.getString("type")));
             }
-            return resultantLogIndex;
+
         }
         catch (JSONException e)
         {
             server.consoleError("resultJson = " + resultJson,2);
         }
-        return resultantLogIndex;
+        return new Pair<String, AppPacket.PacketType>(resultantLogIndex, AppPacket.PacketType.HEARTBEAT);
     }
 
     public static List<String> getAllLogs(MulticastServer server) throws URISyntaxException, HttpException, IOException

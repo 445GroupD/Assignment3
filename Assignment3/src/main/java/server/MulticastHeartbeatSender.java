@@ -1,5 +1,6 @@
 package server;
 
+import javafx.util.Pair;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import utils.WebService.RestCaller;
@@ -57,10 +58,13 @@ public class MulticastHeartbeatSender implements Runnable
         }
         // Something like this
         String data ="";
+        AppPacket.PacketType type = AppPacket.PacketType.HEARTBEAT;
         try
         {
             System.out.println("smallest = " + smallest);
-            data =RestCaller.getLogByIndex(server,++smallest+"");
+            Pair<String, AppPacket.PacketType> returnedData = RestCaller.getLogByIndex(server, ++smallest + "");
+            data = returnedData.getKey();
+            type = returnedData.getValue();
         }
         catch (URISyntaxException e)
         {
@@ -76,7 +80,7 @@ public class MulticastHeartbeatSender implements Runnable
         }
         System.out.println("data = " + data);
         server.clearFollowerStatusMap();
-        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), server.getLatestLogIndex(), -1,smallest, data);
+        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), server.getLatestLogIndex(), -1,smallest,type.ordinal(), data);
 
     }
 

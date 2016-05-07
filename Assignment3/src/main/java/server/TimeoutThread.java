@@ -43,7 +43,7 @@ public class TimeoutThread implements Runnable
             //start election
             server.consoleMessage("Sending Vote Requests", 2);
             AppPacket voteRequest = new AppPacket(server.getId(), AppPacket.PacketType.VOTE_REQUEST, server.getLeaderId(),
-                    server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, "");
+                    server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,AppPacket.PacketType.VOTE_REQUEST.ordinal(), "");
 
             try
             {

@@ -27,8 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static server.Packet.AppPacket.PacketType.ACK;
-import static server.Packet.AppPacket.PacketType.COMMIT;
+import static server.Packet.AppPacket.PacketType.*;
 
 public class MulticastServer
 {
@@ -667,7 +666,7 @@ public class MulticastServer
                         consoleError("SHOULDNT SEE THIS", 2);
                         break;
                     case COMMENT:
-                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
+                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), ACK.ordinal(),"");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
                         consoleMessage("Acking commit request confirmation for " + receivedPacket.toString(), 2);
@@ -678,7 +677,7 @@ public class MulticastServer
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
 
                         fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
-                        RestCaller.postLog(this, receivedLogIndex, actualDataFromIncomingStorage);
+                        RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage);
                         consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
                         latestLogIndex = receivedPacket.getLogIndex();
                         break;
@@ -701,7 +700,7 @@ public class MulticastServer
                             leaderId = -1;
                             lastVotedElection = (int) receivedPacket.getTerm();
                             AppPacket votePacket = new AppPacket(serverId, AppPacket.PacketType.VOTE,
-                                    leaderId, lastVotedElection, groupCount, 0, 0, Integer.toString(receivedPacket.getServerId()));
+                                    leaderId, lastVotedElection, groupCount, 0, 0,AppPacket.PacketType.VOTE.ordinal(), Integer.toString(receivedPacket.getServerId()));
                             multicastSocket.send(votePacket.getDatagram(group, PORT));
                             consoleMessage("voting in term " + term + " for server " + receivedPacket
                                     .getServerId(), 2);
@@ -793,14 +792,14 @@ public class MulticastServer
                 {
 
                     latestLogIndex = receivedPacket.getLogIndex();
-                    RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
+                    RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()),receivedPacket.getReadableData());
                 }
                 else if(receivedPacket.getHighest() < latestLogIndex){
                     latestLogIndex = (int) receivedPacket.getHighest();
                     RestCaller.rollBack(this);
                 }
                 System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
-                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, HEARTBEAT_ACK.ordinal(),latestLogIndex + "");
 
                 if (heartbeatDebug)
                 {
@@ -849,7 +848,7 @@ public class MulticastServer
                         //send the commit command to all followers if necessary.
 
                         //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
-                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex, committedLogIndex + "");
+                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex,ackedLeaderPacket.getPacket().getDataType(), committedLogIndex + "");
                         if (term == ackedLeaderPacket.getTerm())
                         {
                             //send the commit command to all followers of this leader
@@ -871,7 +870,7 @@ public class MulticastServer
                     }
                     break;
                 case COMMENT:
-                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, receivedPacket.getReadableData());
+                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, COMMENT.ordinal(),receivedPacket.getReadableData());
                     getOutgoingLocalStorage().put(redirectPacket.getSequenceNumber(), new LeaderPacket(redirectPacket));
 
                     consoleMessage("Sending " + redirectPacket.toString(), 2);
