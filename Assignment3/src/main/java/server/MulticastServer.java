@@ -141,9 +141,9 @@ public class MulticastServer
         //add the sever UI to the scroll panel
         scrollPanePanel.add(serverConsolePanel, BorderLayout.EAST);
         //create the scroll panel with the scroll panel
-        scrollpane = new JScrollPane(scrollPanePanel);
+//        scrollpane = new JScrollPane(scrollPanePanel);
         //add the scroll pane to the frame's content pane.
-        frame.getContentPane().add(scrollpane, BorderLayout.CENTER);
+        frame.getContentPane().add(scrollPanePanel, BorderLayout.CENTER);
         frame.setLocation(x, y);
 
         //show the frame
@@ -269,8 +269,9 @@ public class MulticastServer
         userControlsPanel.add(userMessageInput, BorderLayout.WEST);
         userControlsPanel.add(userMessageInputButton, BorderLayout.EAST);
 
-        userConsolePanel.add(userConsole, BorderLayout.CENTER);
+        userConsolePanel.add(new JScrollPane(userConsole), BorderLayout.CENTER);
         userConsolePanel.add(userControlsPanel, BorderLayout.SOUTH);
+
         return userConsolePanel;
     }
 
@@ -373,7 +374,7 @@ public class MulticastServer
                     consolePrompt("What do you want to do: ");
                 }*/
 //                serverConsole.setCaretPosition(userConsole.getDocument().getLength());
-                scrollToBottom(scrollpane);
+//                scrollToBottom(scrollpane);
             }
 
             @Override
@@ -455,9 +456,9 @@ public class MulticastServer
         westControlsPanel.add(serverStatusButton, BorderLayout.WEST);
         westControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
 
-//        centralControlsPanel.add(deleteButton,BorderLayout.WEST);
+        centralControlsPanel.add(deleteButton,BorderLayout.WEST);
         centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
-        centralControlsPanel.add(serverKillButton, BorderLayout.EAST);
+        centralControlsPanel.add(serverKillButton, BorderLayout.AFTER_LAST_LINE);
 
         serverControlsPanel.add(westControlsPanel, BorderLayout.WEST);
         serverControlsPanel.add(centralControlsPanel, BorderLayout.CENTER);
@@ -467,7 +468,7 @@ public class MulticastServer
         serverConsolePanel.setLayout(new BorderLayout());
         serverConsolePanel.add(new JLabel("Server " + serverId + " Console"), BorderLayout.NORTH);
 
-        serverConsolePanel.add(serverConsole, BorderLayout.CENTER);
+        serverConsolePanel.add(new JScrollPane(serverConsole), BorderLayout.CENTER);
         serverConsolePanel.add(serverControlsPanel, BorderLayout.SOUTH);
         return serverConsolePanel;
     }

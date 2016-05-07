@@ -76,7 +76,7 @@ public class MulticastHeartbeatSender implements Runnable
         }
         System.out.println("data = " + data);
         server.clearFollowerStatusMap();
-        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), -1, -1,smallest, data);
+        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), server.getLatestLogIndex(), -1,smallest, data);
 
     }
 

@@ -40,18 +40,6 @@ public class MulticastServerSender implements Runnable
                     e.printStackTrace();
                 }
             }
-            //rest();
-        }
-    }
-
-    private void rest() {
-        try
-        {
-            Thread.sleep(1000);
-        }
-        catch (InterruptedException e)
-        {
-            e.printStackTrace();
         }
     }
 }
