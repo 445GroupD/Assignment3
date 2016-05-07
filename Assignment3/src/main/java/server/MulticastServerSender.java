@@ -24,7 +24,7 @@ public class MulticastServerSender implements Runnable
         while (!server.getDebugKill())
         {
             String clientMessageToSend = server.getClientMessageToSend();
-            if (clientMessageToSend != null && !clientMessageToSend.isEmpty() && server.isLeader())
+            if (clientMessageToSend != null && !clientMessageToSend.isEmpty())
             {
                 try
                 {
@@ -33,7 +33,10 @@ public class MulticastServerSender implements Runnable
 
                     server.consoleMessage("Sending " + outgoingPacket.toString(), 2);
                     server.getMulticastSocket().send(outgoingPacket.getDatagram(server.getGroup(), server.getPort()));
-                    server.clearOutgoingData();
+                    if (server.getLeaderId() != -1)
+                    {
+                        server.clearOutgoingData();
+                    }
                 }
                 catch (IOException e)
                 {

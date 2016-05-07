@@ -651,6 +651,10 @@ public class MulticastServer
     {
         try
         {
+            if(receivedPacket.getTerm() < getTerm())
+            {
+                return;
+            }
             // make sure the packet is from the leader
             if (receivedPacket.getServerId() == leaderId)
             {
@@ -740,6 +744,11 @@ public class MulticastServer
 
     public void candidateParse(AppPacket receivedPacket)
     {
+
+        if(receivedPacket.getTerm() < getTerm())
+        {
+            return;
+        }
         switch (receivedPacket.getType())
         {
             case VOTE:
@@ -829,12 +838,17 @@ public class MulticastServer
      */
     public void leaderParse(AppPacket receivedPacket)
     {
+
         try
         {
             System.out.println("leader parse " + serverId);
             switch (receivedPacket.getType())
             {
                 case ACK:
+                    if(receivedPacket.getTerm() < getTerm())
+                    {
+                        return;
+                    }
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
                     int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
@@ -862,12 +876,24 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
+                    if(receivedPacket.getTerm() < getTerm())
+                    {
+                        return;
+                    }
                     followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
                     if (heartbeatDebug)
                     {
                         consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(), 2);
                     }
                     break;
+                case COMMENT:
+                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, receivedPacket.getReadableData());
+                    getOutgoingLocalStorage().put(redirectPacket.getSequenceNumber(), new LeaderPacket(redirectPacket));
+
+                    consoleMessage("Sending " + redirectPacket.toString(), 2);
+                    getMulticastSocket().send(redirectPacket.getDatagram(getGroup(), getPort()));
+                    clearOutgoingData();
+
             }
         }
         catch (IOException e)
@@ -1016,23 +1042,7 @@ public class MulticastServer
         {
             return false;
         }
-        else if (packet.getTerm() < term) /* Packet from obsolete term */
-        {
-            return false;
-        }
-        else if (packet.getTerm() == term)
-        {
-            return true;
-        }
-        else /* Packet.term > termNum: A new term has begun.*/
-        {
-            if (leaderId == -1) /* We don't know the leader of the current term so we accept all packets by
-                default */
-            {
-                return true;
-            }
-            return packet.getServerId() == packet.getLeaderId(); /* Accept packet if it is from the new leader */
-        }
+        return true;
     }
 
     public void updateStateAndLeader(AppPacket packet)

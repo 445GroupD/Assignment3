@@ -14,6 +14,7 @@ public class MulticastHeartbeatSender implements Runnable
     private final MulticastServer server;
     private final Map<Integer, Integer> followerStatusMap;
     long lt;
+
     public MulticastHeartbeatSender(MulticastServer server)
     {
         this.server = server;
@@ -32,7 +33,7 @@ public class MulticastHeartbeatSender implements Runnable
                 AppPacket heartbeatPacket = buildPacket();
                 if (server.getHeartbeatDebug())
                 {
-                    server.consoleMessage("\nSending Heartbeat" + heartbeatPacket.toString(),2);
+                    server.consoleMessage("\nSending Heartbeat" + heartbeatPacket.toString(), 2);
                 }
                 server.getMulticastSocket().send(heartbeatPacket.getDatagram(server.getGroup(), server.getPort()));
                 rest();
@@ -46,21 +47,29 @@ public class MulticastHeartbeatSender implements Runnable
 
     private AppPacket buildPacket()
     {
-        int smallest = server.getLatestLogIndex() -1;
-        for(Integer current : followerStatusMap.values())
+        int smallest = server.getLatestLogIndex() - 1;
+        for (Integer current : followerStatusMap.values())
         {
-            if(current < smallest)
+            if (current < smallest)
             {
                 System.out.println("if case");
                 smallest = current;
             }
         }
         // Something like this
-        String data ="";
+        String data = "";
         try
         {
             System.out.println("smallest = " + smallest);
-            data =RestCaller.getLogByIndex(server,++smallest+"");
+            if (smallest > 0)
+            {
+                System.out.println("smallest = " + smallest);
+                long start = System.currentTimeMillis();
+                data = RestCaller.getLogByIndex(server, ++smallest + "");
+                long end = System.currentTimeMillis();
+                server.consoleMessage((end - start)+"",1);
+            }
+
         }
         catch (URISyntaxException e)
         {
@@ -76,7 +85,7 @@ public class MulticastHeartbeatSender implements Runnable
         }
         System.out.println("data = " + data);
         server.clearFollowerStatusMap();
-        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), server.getLatestLogIndex(), -1,smallest, data);
+        return new AppPacket(server.getId(), AppPacket.PacketType.HEARTBEAT, server.getLeaderId(), server.getTerm(), server.getLatestLogIndex(), -1, smallest, data);
 
     }
 
