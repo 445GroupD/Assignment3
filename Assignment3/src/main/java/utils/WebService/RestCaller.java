@@ -174,6 +174,25 @@ public class RestCaller
         return true;
     }
 
+    public static boolean rollBack(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Post Header
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + server.getLatestLogIndex();
+
+        HttpDelete httpDelete = new HttpDelete(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("RollBack requested:  " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpDelete);
+
+//        String resultJson = EntityUtils.toString(response.getEntity());
+//        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+
+        return true;
+    }
+
     public static int getLatestIndexNumber(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Get Sequence number
