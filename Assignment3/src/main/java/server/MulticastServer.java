@@ -1,5 +1,6 @@
 package server;
 
+import javafx.util.Pair;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
@@ -12,7 +13,10 @@ import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URISyntaxException;
@@ -28,7 +32,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.Base64.*;
 
 import static server.Packet.AppPacket.PacketType.*;
 
@@ -60,7 +63,7 @@ public class MulticastServer
     private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
 
     private final Map<Integer, LeaderPacket> outgoingLocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
-    private final LinkedBlockingQueue<String> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<String>();
+    private final LinkedBlockingQueue<Pair<String,String>> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<Pair<String,String>>();
     private final Map<Integer, Integer> followerStatusMap = new ConcurrentHashMap<Integer, Integer>();
 
     private JTextArea userConsole;
@@ -75,6 +78,7 @@ public class MulticastServer
     private int latestLogIndex = 1;
     private boolean debugKill = false;
     private JFrame frame;
+    private JComboBox<String> pidComboBox;
 
 
     public MulticastServer(int serverId, int leaderId, CountDownLatch latch, int x, int y) throws IOException
@@ -163,8 +167,7 @@ public class MulticastServer
         userConsole.setWrapStyleWord(true);
         userConsole.setEditable(false);
 
-        userMessageInput = new JTextField(40);
-        userMessageInput.setSize(400, 100);
+        userMessageInput = new JTextField(30);
 
         userMessageInputButton = new JButton("Send");
         userMessageInputButton.setSize(50, 100);
@@ -192,7 +195,8 @@ public class MulticastServer
             {
                 userMessageInput.setEditable(false);
                 String textFromGUI = userMessageInput.getText();
-                addClientMessage(textFromGUI);
+                String pidFromGUI  = (String) pidComboBox.getSelectedItem();
+                addClientMessage(pidFromGUI,textFromGUI);
                 consoleMessage(textFromGUI, 1);
                 userMessageInput.setText("");
                 userMessageInput.setEditable(true);
@@ -268,8 +272,19 @@ public class MulticastServer
         JPanel userControlsPanel = new JPanel();
         userControlsPanel.setSize(500, 500);
         userControlsPanel.setLayout(new BorderLayout());
-        userControlsPanel.add(userMessageInput, BorderLayout.WEST);
-        userControlsPanel.add(userMessageInputButton, BorderLayout.EAST);
+
+        JPanel inputPanel =  new JPanel(new BorderLayout());
+        pidComboBox = new JComboBox<String>(new String[]{"pid1", "pid2", "pid3","pid4", "pid5", "pid6"});
+        inputPanel.add(pidComboBox, BorderLayout.WEST);
+        JPanel innerInputPanel = new JPanel(new BorderLayout());
+
+        innerInputPanel.add(userMessageInput,BorderLayout.WEST);
+        innerInputPanel.add(userMessageInputButton, BorderLayout.EAST);
+
+        inputPanel.add(innerInputPanel,BorderLayout.EAST);
+
+
+        userControlsPanel.add(inputPanel, BorderLayout.EAST);
 
         userConsolePanel.add(new JScrollPane(userConsole), BorderLayout.CENTER);
         userConsolePanel.add(userControlsPanel, BorderLayout.SOUTH);
@@ -585,12 +600,12 @@ public class MulticastServer
         verticalBar.addAdjustmentListener(downScroller);
     }
 
-    private void addClientMessage(String textFromGUI)
+    private void addClientMessage(String pID, String textFromGUI)
     {
         //System.out.println("ADDING CM " + textFromGUI);
         try
         {
-            linkedBlockingClientMessageQueue.put(textFromGUI);
+            linkedBlockingClientMessageQueue.put(new Pair<String, String>(pID,textFromGUI));
         }
         catch (InterruptedException e)
         {
@@ -752,10 +767,19 @@ public class MulticastServer
                         AppPacket localPacketFromIncomingStorage = incomingLocalStorage.get(getIncomingStorageKey(receivedPacket));
                         String receivedLogIndex = receivedPacket.getReadableData();
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
-
-                        fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
-                        RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage);
-                        consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                        if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT))
+                        {
+                            int split = actualDataFromIncomingStorage.indexOf(" ");
+                            String pid = actualDataFromIncomingStorage.substring(0,split+1);
+                            actualDataFromIncomingStorage = actualDataFromIncomingStorage.substring(split+1,actualDataFromIncomingStorage.length());
+                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage, pid);
+                            consoleMessage("Committed Packet: #%s" + pid + " " + localPacketFromIncomingStorage.toString() , 2);
+                        }
+                        else
+                        {
+                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage);
+                            consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                        }
                         latestLogIndex = receivedPacket.getLogIndex();
                         break;
                     case HEARTBEAT:
@@ -878,7 +902,16 @@ public class MulticastServer
                 {
 
                     latestLogIndex = receivedPacket.getLogIndex();
-                    RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()),receivedPacket.getReadableData());
+                    if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT)){
+                        int split = receivedPacket.getReadableData().indexOf(" ");
+                        String pid = receivedPacket.getReadableData().substring(0,split+1);
+                        String comment = receivedPacket.getReadableData().substring(split+1,receivedPacket.getReadableData().length());
+                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()),comment, pid);
+                    }
+                    else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
+                    {
+                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), receivedPacket.getReadableData());
+                    }
                 }
                 else if(receivedPacket.getHighest() < latestLogIndex){
                     latestLogIndex = (int) receivedPacket.getHighest();
@@ -1190,11 +1223,11 @@ public class MulticastServer
     }
 
 
-    public String getClientMessageToSend()
+    public Pair<String,String> getClientMessageToSend()
     {
         try
         {
-            String take = linkedBlockingClientMessageQueue.take();
+            Pair<String,String> take = linkedBlockingClientMessageQueue.take();
             return take;
         }
         catch (InterruptedException e)

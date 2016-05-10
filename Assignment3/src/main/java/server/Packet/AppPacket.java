@@ -61,7 +61,6 @@ public class AppPacket
 
     private byte[] fill(String data)
     {
-
         int fill = PACKET_SIZE - headerSize - data.length();
         if(type.equals(PacketType.PICTURE)){
             System.out.println("Picture Data FILL size = " + fill);;

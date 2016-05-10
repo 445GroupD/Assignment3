@@ -1,5 +1,6 @@
 package server;
 
+import javafx.util.Pair;
 import server.MulticastServer;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -23,12 +24,12 @@ public class MulticastServerSender implements Runnable
     {
         while (!server.getDebugKill())
         {
-            String clientMessageToSend = server.getClientMessageToSend();
-            if (clientMessageToSend != null && !clientMessageToSend.isEmpty())
+            Pair<String,String> clientMessageToSend = server.getClientMessageToSend();
+            if (clientMessageToSend != null && !clientMessageToSend.getValue().isEmpty() && !clientMessageToSend.getKey().isEmpty())
             {
                 try
                 {
-                    AppPacket outgoingPacket = new AppPacket(server.getId(), AppPacket.PacketType.COMMENT, server.getLeaderId(), server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,AppPacket.PacketType.COMMENT.ordinal(), clientMessageToSend);
+                    AppPacket outgoingPacket = new AppPacket(server.getId(), AppPacket.PacketType.COMMENT, server.getLeaderId(), server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,AppPacket.PacketType.COMMENT.ordinal(), clientMessageToSend.getKey() + " " +clientMessageToSend.getValue());
                     server.getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
 
                     server.consoleMessage("Sending " + outgoingPacket.toString(), 2);
