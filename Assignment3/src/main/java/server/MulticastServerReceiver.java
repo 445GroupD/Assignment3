@@ -1,5 +1,6 @@
 package server;
 
+import com.sun.org.apache.xpath.internal.operations.Mult;
 import server.MulticastServer;
 import server.Packet.AppPacket;
 
@@ -31,7 +32,7 @@ public class MulticastServerReceiver implements Runnable
             boolean sentinel = true;
             while (!server.getDebugKill())
             {
-                buf = new byte[1500];
+                buf = new byte[AppPacket.PACKET_SIZE];
                 packet = new DatagramPacket(buf, buf.length, server.getGroup(), server.getPort());
                 server.getMulticastSocket().receive(packet);
                 receivedPacket = new AppPacket(packet.getData());
