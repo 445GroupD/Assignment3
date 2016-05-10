@@ -34,12 +34,24 @@ public class RestCaller
 
     public static int postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
     {
+        return postLog(server,logIndex,type,log,"");
+    }
+    public static int postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
+    {
         log = URLEncoder.encode(log, "UTF-8");
 
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
         String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString();
+        if(type.equals(AppPacket.PacketType.COMMENT))
+        {
+            if(pid.isEmpty())
+            {
+                server.consoleError("PID was Empty", 1);
+            }
+            restUri = restUri + "?pid=" + pid;
+        }
 
         HttpPost httpPost = new HttpPost(restUri);
         httpPost.setHeader("Content-type", "application/x-www-form-urlencoded");

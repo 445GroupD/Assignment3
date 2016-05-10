@@ -61,7 +61,6 @@ public class AppPacket
 
     private byte[] fill(String data)
     {
-
         int fill = PACKET_SIZE - headerSize - data.length();
         for (int i = 0; i < fill; i++)
         {

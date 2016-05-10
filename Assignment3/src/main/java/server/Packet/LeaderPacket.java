@@ -1,15 +1,15 @@
 package server.Packet;
 
 import org.apache.http.HttpException;
-import org.apache.http.HttpResponse;
 import server.MulticastServer;
 import utils.WebService.RestCaller;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Map;
 
 import static java.lang.String.format;
+import static server.Packet.AppPacket.PacketType.COMMENT;
+import static server.Packet.AppPacket.PacketType.PICTURE;
 
 /**
  * Created by Lincoln W Daniel on 4/22/2016.
@@ -71,7 +71,17 @@ public class LeaderPacket
             boolean receivedMajority = acksReceived >= majority;
             if (receivedMajority)
             {
-                logIndex = RestCaller.postLog(server, "create", packet.getType(), packet.getReadableData());
+                if (AppPacket.PacketType.fromInt(packet.getDataType()).equals(COMMENT))
+                {
+                    int split = packet.getReadableData().indexOf(" ");
+                    String pid = packet.getReadableData().substring(0, split + 1);
+                    String comment = packet.getReadableData().substring(split + 1, packet.getReadableData().length());
+                    logIndex = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), comment, pid);
+                }
+                else if (AppPacket.PacketType.fromInt(packet.getDataType()).equals(PICTURE))
+                {
+                    logIndex = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), packet.getReadableData());
+                }
                 //set already committed so this packet is not committed on the next ack
                 alreadyCommittedToDB = true;
 
