@@ -1,6 +1,7 @@
 package server;
 
 import javafx.util.Pair;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpException;
 import server.Packet.AppPacket;
 import server.Packet.LeaderPacket;
@@ -9,9 +10,13 @@ import utils.WebService.RestCaller;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.URISyntaxException;
@@ -433,6 +438,7 @@ public class MulticastServer
                         outgoing = startSendingThread();
                         incoming = startReceivingThread();
                         heartbeat = startHeartbeatThread();
+                        if(!serverState.equals(ServerState.LEADER))
                         timeoutThread = startTimeOutThread();
                     }
                 }
@@ -454,6 +460,22 @@ public class MulticastServer
             }
         });
 
+        final JButton sendPhoto = new JButton(("Send Photo"));
+        sendPhoto.setSize(50,100);
+        sendPhoto.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser chooser = new JFileChooser();
+                FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                        "JPG & GIF Images", "jpg", "gif", "png");
+                chooser.setFileFilter(filter);
+                int returnVal = chooser.showOpenDialog(sendPhoto);
+                if (returnVal == JFileChooser.APPROVE_OPTION ) {
+                        photoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
+                }
+            }
+        });
+
         JPanel serverControlsPanel = new JPanel();
         serverControlsPanel.setSize(500, 500);
         serverControlsPanel.setLayout(new BorderLayout());
@@ -467,11 +489,12 @@ public class MulticastServer
         centralControlsPanel.setLayout(new BorderLayout());
 
         westControlsPanel.add(serverStatusButton, BorderLayout.WEST);
-        westControlsPanel.add(serverTimeoutButton, BorderLayout.CENTER);
+        centralControlsPanel.add(serverTimeoutButton, BorderLayout.BEFORE_FIRST_LINE);
 
         centralControlsPanel.add(deleteButton,BorderLayout.WEST);
         centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         centralControlsPanel.add(serverKillButton, BorderLayout.AFTER_LAST_LINE);
+        centralControlsPanel.add(sendPhoto,BorderLayout.EAST);
 
         serverControlsPanel.add(westControlsPanel, BorderLayout.WEST);
         serverControlsPanel.add(centralControlsPanel, BorderLayout.CENTER);
@@ -506,7 +529,60 @@ public class MulticastServer
             e.printStackTrace();
         }
     }
+    private void photoSend(String base){
+        try
+        {
+            AppPacket outgoingPacket = new AppPacket(getId(), AppPacket.PacketType.PICTURE, getLeaderId(), getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,PICTURE.ordinal(), base);
+            getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
+            consoleMessage("Photo is being sent from leader", 1);
+            getMulticastSocket().send(outgoingPacket.getDatagram(getGroup(),getPort()));
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
 
+    }
+    public String convertPicture(String fileName)
+    {
+    //35kb cap
+        String encodedFile = "";
+        try {
+            File f = new File(fileName);
+            byte[] fileBytes = loadFile(f);
+            byte[] encoded = Base64.encodeBase64(fileBytes);
+            encodedFile  = new String(encoded);
+            return encodedFile;
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+        return encodedFile;
+    }
+
+    private static byte[] loadFile(File file) throws IOException
+    {
+        InputStream is = new FileInputStream(file);
+
+        long length = file.length();
+        if (length > Integer.MAX_VALUE) {
+            // File is too large
+        }
+        byte[] bytes = new byte[(int)length];
+
+        int offset = 0;
+        int numRead = 0;
+        while (offset < bytes.length
+                && (numRead=is.read(bytes, offset, bytes.length-offset)) >= 0) {
+            offset += numRead;
+        }
+
+        if (offset < bytes.length) {
+            throw new IOException("Could not completely read file "+file.getName());
+        }
+
+        is.close();
+        return bytes;
+    }
 
     private void scrollToBottom(JScrollPane scrollPane)
     {
@@ -662,6 +738,9 @@ public class MulticastServer
      */
     public void followerParse(AppPacket receivedPacket)
     {
+        if(receivedPacket.getTerm() < term){
+            return;
+        }
         try
         {
             // make sure the packet is from the leader
@@ -705,6 +784,12 @@ public class MulticastServer
                         break;
                     case HEARTBEAT:
                         parseHeartbeat(receivedPacket);
+                        break;
+                    case PICTURE:
+                        AppPacket ack = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(),ACK.ordinal(), "");
+                        incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
+                        multicastSocket.send(ack.getDatagram(group, PORT));
+                        consoleMessage("Acking commit request confirmation for " + receivedPacket.toString()+ " (Type photo)", 2);
                         break;
                 }
             }
@@ -762,6 +847,9 @@ public class MulticastServer
 
     public void candidateParse(AppPacket receivedPacket)
     {
+        if(receivedPacket.getTerm() < term){
+            return;
+        }
         switch (receivedPacket.getType())
         {
             case VOTE:
@@ -867,6 +955,9 @@ public class MulticastServer
             switch (receivedPacket.getType())
             {
                 case ACK:
+                    if(receivedPacket.getTerm() < term){
+                        return;
+                    }
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
                     int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
@@ -894,6 +985,9 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
+                    if(receivedPacket.getTerm() < term){
+                        return;
+                    }
                     followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
                     if (heartbeatDebug)
                     {
@@ -906,6 +1000,14 @@ public class MulticastServer
 
                     consoleMessage("Sending " + redirectPacket.toString(), 2);
                     getMulticastSocket().send(redirectPacket.getDatagram(getGroup(), getPort()));
+                    clearOutgoingData();
+                    break;
+                case PICTURE:
+                    AppPacket redirPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, PICTURE.ordinal(),receivedPacket.getReadableData());
+                    getOutgoingLocalStorage().put(redirPacket.getSequenceNumber(), new LeaderPacket(redirPacket));
+
+                    consoleMessage("Sending Photo " + redirPacket.toString(), 2);
+                    getMulticastSocket().send(redirPacket.getDatagram(getGroup(), getPort()));
                     clearOutgoingData();
                     break;
             }

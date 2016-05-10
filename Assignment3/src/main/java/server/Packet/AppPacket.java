@@ -11,7 +11,7 @@ import static java.lang.String.format;
 
 public class AppPacket
 {
-    private static final int PACKET_SIZE = 1500;
+    public static final int PACKET_SIZE = 10000;
     private final int headerSize;
     private final int serverId;
     private final PacketType type;
@@ -62,6 +62,10 @@ public class AppPacket
     private byte[] fill(String data)
     {
         int fill = PACKET_SIZE - headerSize - data.length();
+        if(type.equals(PacketType.PICTURE)){
+            System.out.println("Picture Data FILL size = " + fill);;
+            System.out.println("Picture Data Length = " + data.length());
+        }
         for (int i = 0; i < fill; i++)
         {
             data += " ";
