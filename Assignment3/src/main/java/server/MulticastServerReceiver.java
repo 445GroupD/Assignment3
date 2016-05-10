@@ -37,8 +37,9 @@ public class MulticastServerReceiver implements Runnable
                 server.getMulticastSocket().receive(packet);
                 receivedPacket = new AppPacket(packet.getData());
                 server.updateStateAndLeader(receivedPacket);
-                if(server.filterPacket(receivedPacket))
+                if(receivedPacket.getServerId() != server.getId())
                 {
+
                     if (server.isLeader())
                     {
                         System.out.println("calling leader parse " + server.getId());

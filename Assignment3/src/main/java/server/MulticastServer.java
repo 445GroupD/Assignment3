@@ -30,8 +30,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.Base64.*;
 
-import static server.Packet.AppPacket.PacketType.ACK;
-import static server.Packet.AppPacket.PacketType.COMMIT;
+import static server.Packet.AppPacket.PacketType.*;
 
 public class MulticastServer
 {
@@ -457,9 +456,7 @@ public class MulticastServer
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showOpenDialog(sendPhoto);
                 if (returnVal == JFileChooser.APPROVE_OPTION ) {
-                    if(serverState.equals(ServerState.LEADER)) {
-                        leaderPhotoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
-                    }
+                        photoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
                 }
             }
         });
@@ -517,10 +514,10 @@ public class MulticastServer
             e.printStackTrace();
         }
     }
-    private void leaderPhotoSend(String base){
+    private void photoSend(String base){
         try
         {
-            AppPacket outgoingPacket = new AppPacket(getId(), AppPacket.PacketType.PICTURE, getLeaderId(), getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, base);
+            AppPacket outgoingPacket = new AppPacket(getId(), AppPacket.PacketType.PICTURE, getLeaderId(), getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,PICTURE.ordinal(), base);
             getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
             consoleMessage("Photo is being sent from leader", 1);
             getMulticastSocket().send(outgoingPacket.getDatagram(getGroup(),getPort()));
@@ -534,15 +531,12 @@ public class MulticastServer
     public String convertPicture(String fileName)
     {
     //35kb cap
-        String encodedFile = null;
+        String encodedFile = "";
         try {
             File f = new File(fileName);
             byte[] fileBytes = loadFile(f);
             byte[] encoded = Base64.encodeBase64(fileBytes);
             encodedFile  = new String(encoded);
-            File md = new File("C:/Users/Akeem Davis/Desktop/New folder/Assignment3/Assignment3/test.txt");
-            OutputStream os = new FileOutputStream(md);
-            os.write(encoded);
             return encodedFile;
         }catch(IOException e){
             e.printStackTrace();
@@ -729,6 +723,9 @@ public class MulticastServer
      */
     public void followerParse(AppPacket receivedPacket)
     {
+        if(receivedPacket.getTerm() < term){
+            return;
+        }
         try
         {
             // make sure the packet is from the leader
@@ -746,7 +743,7 @@ public class MulticastServer
                         consoleError("SHOULDNT SEE THIS", 2);
                         break;
                     case COMMENT:
-                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
+                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), ACK.ordinal(),"");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
                         consoleMessage("Acking commit request confirmation for " + receivedPacket.toString(), 2);
@@ -757,7 +754,7 @@ public class MulticastServer
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
 
                         fakeDB.put(Integer.parseInt(receivedLogIndex), actualDataFromIncomingStorage);
-                        RestCaller.postLog(this, receivedLogIndex, actualDataFromIncomingStorage);
+                        RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage);
                         consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
                         latestLogIndex = receivedPacket.getLogIndex();
                         break;
@@ -765,7 +762,7 @@ public class MulticastServer
                         parseHeartbeat(receivedPacket);
                         break;
                     case PICTURE:
-                        AppPacket ack = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), "");
+                        AppPacket ack = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(),ACK.ordinal(), "");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ack.getDatagram(group, PORT));
                         consoleMessage("Acking commit request confirmation for " + receivedPacket.toString()+ " (Type photo)", 2);
@@ -786,7 +783,7 @@ public class MulticastServer
                             leaderId = -1;
                             lastVotedElection = (int) receivedPacket.getTerm();
                             AppPacket votePacket = new AppPacket(serverId, AppPacket.PacketType.VOTE,
-                                    leaderId, lastVotedElection, groupCount, 0, 0, Integer.toString(receivedPacket.getServerId()));
+                                    leaderId, lastVotedElection, groupCount, 0, 0,AppPacket.PacketType.VOTE.ordinal(), Integer.toString(receivedPacket.getServerId()));
                             multicastSocket.send(votePacket.getDatagram(group, PORT));
                             consoleMessage("voting in term " + term + " for server " + receivedPacket
                                     .getServerId(), 2);
@@ -826,6 +823,9 @@ public class MulticastServer
 
     public void candidateParse(AppPacket receivedPacket)
     {
+        if(receivedPacket.getTerm() < term){
+            return;
+        }
         switch (receivedPacket.getType())
         {
             case VOTE:
@@ -878,14 +878,14 @@ public class MulticastServer
                 {
 
                     latestLogIndex = receivedPacket.getLogIndex();
-                    RestCaller.postLog(this, latestLogIndex + "", receivedPacket.getReadableData());
+                    RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()),receivedPacket.getReadableData());
                 }
                 else if(receivedPacket.getHighest() < latestLogIndex){
                     latestLogIndex = (int) receivedPacket.getHighest();
                     RestCaller.rollBack(this);
                 }
                 System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
-                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, latestLogIndex + "");
+                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, HEARTBEAT_ACK.ordinal(),latestLogIndex + "");
 
                 if (heartbeatDebug)
                 {
@@ -918,9 +918,13 @@ public class MulticastServer
         try
         {
             System.out.println("leader parse " + serverId);
+            System.out.println("leader parse " + receivedPacket.getReadableData());
             switch (receivedPacket.getType())
             {
                 case ACK:
+                    if(receivedPacket.getTerm() < term){
+                        return;
+                    }
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
                     int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
@@ -933,7 +937,7 @@ public class MulticastServer
                         //send the commit command to all followers if necessary.
 
                         //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
-                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex, committedLogIndex + "");
+                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex,ackedLeaderPacket.getPacket().getDataType(), committedLogIndex + "");
                         if (term == ackedLeaderPacket.getTerm())
                         {
                             //send the commit command to all followers of this leader
@@ -948,13 +952,31 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
+                    if(receivedPacket.getTerm() < term){
+                        return;
+                    }
                     followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
                     if (heartbeatDebug)
                     {
                         consoleMessage("received HeartbeatAck from " + receivedPacket.getServerId() + " with latest log index of " + receivedPacket.getLogIndex(), 2);
                     }
                     break;
+                case COMMENT:
+                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, COMMENT.ordinal(),receivedPacket.getReadableData());
+                    getOutgoingLocalStorage().put(redirectPacket.getSequenceNumber(), new LeaderPacket(redirectPacket));
 
+                    consoleMessage("Sending " + redirectPacket.toString(), 2);
+                    getMulticastSocket().send(redirectPacket.getDatagram(getGroup(), getPort()));
+                    clearOutgoingData();
+                    break;
+                case PICTURE:
+                    AppPacket redirPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, PICTURE.ordinal(),receivedPacket.getReadableData());
+                    getOutgoingLocalStorage().put(redirPacket.getSequenceNumber(), new LeaderPacket(redirPacket));
+
+                    consoleMessage("Sending Photo " + redirPacket.toString(), 2);
+                    getMulticastSocket().send(redirPacket.getDatagram(getGroup(), getPort()));
+                    clearOutgoingData();
+                    break;
             }
         }
         catch (IOException e)

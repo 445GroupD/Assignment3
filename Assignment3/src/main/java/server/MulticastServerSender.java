@@ -24,11 +24,11 @@ public class MulticastServerSender implements Runnable
         while (!server.getDebugKill())
         {
             String clientMessageToSend = server.getClientMessageToSend();
-            if (clientMessageToSend != null && !clientMessageToSend.isEmpty() && server.isLeader())
+            if (clientMessageToSend != null && !clientMessageToSend.isEmpty())
             {
                 try
                 {
-                    AppPacket outgoingPacket = new AppPacket(server.getId(), AppPacket.PacketType.COMMENT, server.getLeaderId(), server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, clientMessageToSend);
+                    AppPacket outgoingPacket = new AppPacket(server.getId(), AppPacket.PacketType.COMMENT, server.getLeaderId(), server.getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,AppPacket.PacketType.COMMENT.ordinal(), clientMessageToSend);
                     server.getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
 
                     server.consoleMessage("Sending " + outgoingPacket.toString(), 2);
