@@ -91,6 +91,14 @@ public class RestCaller
             }
             catch (JSONException e)
             {
+                try
+                {
+                    Thread.sleep(1000);
+                }
+                catch (InterruptedException e1)
+                {
+                    e1.printStackTrace();
+                }
                 server.consoleError("Timed out trying again at " + restUri, 1);
             }
         }

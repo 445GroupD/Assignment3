@@ -34,7 +34,6 @@ public class MulticastServerSender implements Runnable
 
                     server.consoleMessage("Sending " + outgoingPacket.toString(), 2);
                     server.getMulticastSocket().send(outgoingPacket.getDatagram(server.getGroup(), server.getPort()));
-                    server.clearOutgoingData();
                 }
                 catch (IOException e)
                 {
