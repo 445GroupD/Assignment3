@@ -40,20 +40,14 @@ public class RestCaller
     public static Pair<Integer,String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
     {
         log = URLEncoder.encode(log, "UTF-8");
+        pid = URLEncoder.encode(pid.trim(), "UTF-8");
 
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
-        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString();
-        if (type.equals(AppPacket.PacketType.COMMENT))
-        {
-            if (pid.isEmpty())
-            {
-                server.consoleError("PID was Empty", 1);
-            }
-            restUri = restUri + "?pid=" + pid;
-        }
 
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString()+(type.equals(AppPacket.PacketType.COMMENT)?"?pid=" +pid: "");
+        System.out.println("restUri " + restUri);
         HttpPost httpPost = new HttpPost(restUri);
         httpPost.setHeader("Content-type", "application/x-www-form-urlencoded");
 
@@ -81,6 +75,7 @@ public class RestCaller
         {
             if (resultJsonObject.get("type").equals(AppPacket.PacketType.PICTURE.toString()))
             {
+
                 resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
                 pictureData = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
             }

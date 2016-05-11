@@ -290,7 +290,7 @@ public class MulticastServer
         userControlsPanel.setLayout(new BorderLayout());
 
         JPanel inputPanel =  new JPanel(new BorderLayout());
-        pidComboBox = new JComboBox<String>(new String[]{"pid1", "pid2", "pid3","pid4", "pid5", "pid6"});
+        pidComboBox = new JComboBox<String>(new String[]{"1", "2", "3","4", "5", "6"});
         inputPanel.add(pidComboBox, BorderLayout.WEST);
         JPanel innerInputPanel = new JPanel(new BorderLayout());
 
@@ -766,7 +766,7 @@ public class MulticastServer
                         break;
                     case COMMIT:
                         AppPacket localPacketFromIncomingStorage = incomingLocalStorage.get(getIncomingStorageKey(receivedPacket));
-                        String receivedLogIndex = receivedPacket.getReadableData();
+                        String receivedLogIndex = receivedPacket.getLogIndex()+"";
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
                         if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT))
                         {
@@ -779,7 +779,7 @@ public class MulticastServer
                         else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                         {
                             RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),receivedPacket.getReadableData());
-                            consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                            consoleMessage("Committed Packet: #%s" + receivedPacket.getReadableData(), 2);
                         }
                         else
                         {
@@ -975,6 +975,8 @@ public class MulticastServer
                         //send the commit command to all followers if necessary.
 
                         //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
+                        System.out.println("********************* data " + data.getKey());
+                        System.out.println("********************* data " + data.getValue());
                         AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), data.getKey(),ackedLeaderPacket.getPacket().getDataType(), data.getValue());
                         if (term == ackedLeaderPacket.getTerm())
                         {
