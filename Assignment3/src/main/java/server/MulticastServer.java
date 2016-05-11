@@ -290,7 +290,7 @@ public class MulticastServer
         userControlsPanel.setLayout(new BorderLayout());
 
         JPanel inputPanel =  new JPanel(new BorderLayout());
-        pidComboBox = new JComboBox<String>(new String[]{"1", "2", "3","4", "5", "6"});
+        pidComboBox = new JComboBox<String>();
         inputPanel.add(pidComboBox, BorderLayout.WEST);
         JPanel innerInputPanel = new JPanel(new BorderLayout());
 
@@ -778,7 +778,8 @@ public class MulticastServer
                         }
                         else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                         {
-                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),receivedPacket.getReadableData());
+                            int pid = RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),receivedPacket.getReadableData()).getKey();
+                            pidComboBox.addItem(pid+"");
                             consoleMessage("Committed Packet: #%s" + receivedPacket.getReadableData(), 2);
                         }
                         else
@@ -969,6 +970,7 @@ public class MulticastServer
                     //make sure the log index returned from committing is valid
                     if (data.getKey() > -1)
                     {
+                        pidComboBox.addItem(data.getKey()+"");
                         consoleMessage("\nLeader Committed " + ackedLeaderPacket.toString() + "\n", 2);
                         latestLogIndex++;
                         //all is well. The log was committed to this leader's persistent db at the committedLogIndex.

@@ -125,6 +125,11 @@ public class RestCaller
                 {
                     resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
                 }
+                if(resultJsonObject.getString("type").equals("COMMENT"))
+                {
+                    String pid = resultJsonObject.getString("pid");
+                    resultantLogIndex = pid + " " + resultantLogIndex;
+                }
                 return new Pair<String, AppPacket.PacketType>(resultantLogIndex, AppPacket.PacketType.fromString(resultJsonObject.getString("type")));
             }
 
@@ -230,6 +235,26 @@ public class RestCaller
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
         return new JSONObject(resultJson).getInt("seq");
+    }
+    public static List<String> getAllPid(MulticastServer server) throws URISyntaxException, HttpException, IOException
+    {
+        // Create a new HttpClient and Get Sequence number
+        HttpClient httpClient = new DefaultHttpClient();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/pids";
+
+        HttpGet httpGet = new HttpGet(restUri);
+
+        // Execute HTTP Post Request
+        server.consoleMessage("Sending Get request to " + restUri, 2);
+
+        HttpResponse response = httpClient.execute(httpGet);
+
+        String resultJson = EntityUtils.toString(response.getEntity());
+        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
+        List<String> pids = new ArrayList<String>();
+        new JSONObject(resultJson);
+
+        return null;
     }
 
 
