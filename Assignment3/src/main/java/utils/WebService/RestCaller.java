@@ -32,11 +32,12 @@ public class RestCaller
     private static final String TAG = "SeenRestCaller";
     private static final String REST_API_URL = "https://c445a3.herokuapp.com";
 
-    public static int postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
+    public static Pair<Integer,String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
     {
-        return postLog(server,logIndex,type,log,"");
+        return postLog(server, logIndex, type, log, "");
     }
-    public static int postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
+
+    public static Pair<Integer,String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
     {
         log = URLEncoder.encode(log, "UTF-8");
 
@@ -44,9 +45,9 @@ public class RestCaller
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
         String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString();
-        if(type.equals(AppPacket.PacketType.COMMENT))
+        if (type.equals(AppPacket.PacketType.COMMENT))
         {
-            if(pid.isEmpty())
+            if (pid.isEmpty())
             {
                 server.consoleError("PID was Empty", 1);
             }
@@ -75,18 +76,27 @@ public class RestCaller
         JSONObject resultJsonObject = new JSONObject(resultJson);
 
         int resultantLogIndex;
+        String pictureData = "";
         try
         {
-            resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+            if (resultJsonObject.get("type").equals(AppPacket.PacketType.PICTURE.toString()))
+            {
+                resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+                pictureData = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+            }
+            else
+            {
+                resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+            }
         }
         catch (Exception e)
         {
             resultantLogIndex = -1;
         }
-        return resultantLogIndex;
+        return new Pair<Integer,String>(resultantLogIndex,pictureData);
     }
 
-    public static Pair<String,AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
+    public static Pair<String, AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
     {
 
         // Create a new HttpClient and Post Header
@@ -126,7 +136,7 @@ public class RestCaller
         }
         catch (JSONException e)
         {
-            server.consoleError("resultJson = " + resultJson,2);
+            server.consoleError("resultJson = " + resultJson, 2);
         }
         return new Pair<String, AppPacket.PacketType>(resultantLogIndex, AppPacket.PacketType.HEARTBEAT);
     }
@@ -193,7 +203,7 @@ public class RestCaller
     {
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
-        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" +server.getLatestLogIndex();
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + server.getLatestLogIndex();
 
         HttpDelete httpDelete = new HttpDelete(restUri);
 

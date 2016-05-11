@@ -167,7 +167,7 @@ public class MulticastServer
         userConsole.setWrapStyleWord(true);
         userConsole.setEditable(false);
 
-        userMessageInput = new JTextField(30);
+        userMessageInput = new JTextField(35);
 
         userMessageInputButton = new JButton("Send");
         userMessageInputButton.setSize(50, 100);
@@ -264,6 +264,22 @@ public class MulticastServer
             }
         });
 
+        final JButton sendPhoto = new JButton(("Send Photo"));
+        sendPhoto.setSize(50,100);
+        sendPhoto.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser chooser = new JFileChooser();
+                FileNameExtensionFilter filter = new FileNameExtensionFilter(
+                        "JPG & GIF Images", "jpg", "gif", "png");
+                chooser.setFileFilter(filter);
+                int returnVal = chooser.showOpenDialog(sendPhoto);
+                if (returnVal == JFileChooser.APPROVE_OPTION ) {
+                    photoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
+                }
+            }
+        });
+
         JPanel userConsolePanel = new JPanel();
         userConsolePanel.setSize(500, 500);
         userConsolePanel.setLayout(new BorderLayout());
@@ -280,6 +296,7 @@ public class MulticastServer
 
         innerInputPanel.add(userMessageInput,BorderLayout.WEST);
         innerInputPanel.add(userMessageInputButton, BorderLayout.EAST);
+        innerInputPanel.add(sendPhoto,BorderLayout.AFTER_LAST_LINE);
 
         inputPanel.add(innerInputPanel,BorderLayout.EAST);
 
@@ -460,21 +477,6 @@ public class MulticastServer
             }
         });
 
-        final JButton sendPhoto = new JButton(("Send Photo"));
-        sendPhoto.setSize(50,100);
-        sendPhoto.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                JFileChooser chooser = new JFileChooser();
-                FileNameExtensionFilter filter = new FileNameExtensionFilter(
-                        "JPG & GIF Images", "jpg", "gif", "png");
-                chooser.setFileFilter(filter);
-                int returnVal = chooser.showOpenDialog(sendPhoto);
-                if (returnVal == JFileChooser.APPROVE_OPTION ) {
-                        photoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
-                }
-            }
-        });
 
         JPanel serverControlsPanel = new JPanel();
         serverControlsPanel.setSize(500, 500);
@@ -494,7 +496,6 @@ public class MulticastServer
         centralControlsPanel.add(deleteButton,BorderLayout.WEST);
         centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         centralControlsPanel.add(serverKillButton, BorderLayout.AFTER_LAST_LINE);
-        centralControlsPanel.add(sendPhoto,BorderLayout.EAST);
 
         serverControlsPanel.add(westControlsPanel, BorderLayout.WEST);
         serverControlsPanel.add(centralControlsPanel, BorderLayout.CENTER);
@@ -775,10 +776,14 @@ public class MulticastServer
                             RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage, pid);
                             consoleMessage("Committed Packet: #%s" + pid + " " + localPacketFromIncomingStorage.toString() , 2);
                         }
+                        else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
+                        {
+                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),receivedPacket.getReadableData());
+                            consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                        }
                         else
                         {
-                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage);
-                            consoleMessage("Committed Packet: #%s" + localPacketFromIncomingStorage.toString(), 2);
+                            consoleError("big issue type was :" + AppPacket.PacketType.fromInt(receivedPacket.getDataType()),1);
                         }
                         latestLogIndex = receivedPacket.getLogIndex();
                         break;
@@ -960,9 +965,9 @@ public class MulticastServer
                     }
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
-                    int committedLogIndex = ackedLeaderPacket.confirm(getMajority(), this);
+                    Pair<Integer,String> data = ackedLeaderPacket.confirm(getMajority(), this);
                     //make sure the log index returned from committing is valid
-                    if (committedLogIndex > -1)
+                    if (data.getKey() > -1)
                     {
                         consoleMessage("\nLeader Committed " + ackedLeaderPacket.toString() + "\n", 2);
                         latestLogIndex++;
@@ -970,7 +975,7 @@ public class MulticastServer
                         //send the commit command to all followers if necessary.
 
                         //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
-                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), committedLogIndex,ackedLeaderPacket.getPacket().getDataType(), committedLogIndex + "");
+                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), data.getKey(),ackedLeaderPacket.getPacket().getDataType(), data.getValue());
                         if (term == ackedLeaderPacket.getTerm())
                         {
                             //send the commit command to all followers of this leader
