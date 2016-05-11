@@ -63,7 +63,7 @@ public class MulticastServer
     private final Map<Integer, String> fakeDB = new HashMap<Integer, String>();
 
     private final Map<Integer, LeaderPacket> outgoingLocalStorage = new ConcurrentHashMap<Integer, LeaderPacket>();
-    private final LinkedBlockingQueue<Pair<String,String>> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<Pair<String,String>>();
+    private final LinkedBlockingQueue<Pair<String, String>> linkedBlockingClientMessageQueue = new LinkedBlockingQueue<Pair<String, String>>();
     private final Map<Integer, Integer> followerStatusMap = new ConcurrentHashMap<Integer, Integer>();
 
     private JTextArea userConsole;
@@ -195,8 +195,8 @@ public class MulticastServer
             {
                 userMessageInput.setEditable(false);
                 String textFromGUI = userMessageInput.getText();
-                String pidFromGUI  = (String) pidComboBox.getSelectedItem();
-                addClientMessage(pidFromGUI,textFromGUI);
+                String pidFromGUI = (String) pidComboBox.getSelectedItem();
+                addClientMessage(pidFromGUI, textFromGUI);
                 consoleMessage(textFromGUI, 1);
                 userMessageInput.setText("");
                 userMessageInput.setEditable(true);
@@ -265,16 +265,19 @@ public class MulticastServer
         });
 
         final JButton sendPhoto = new JButton(("Send Photo"));
-        sendPhoto.setSize(50,100);
-        sendPhoto.addActionListener(new ActionListener() {
+        sendPhoto.setSize(50, 100);
+        sendPhoto.addActionListener(new ActionListener()
+        {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e)
+            {
                 JFileChooser chooser = new JFileChooser();
                 FileNameExtensionFilter filter = new FileNameExtensionFilter(
                         "JPG & GIF Images", "jpg", "gif", "png");
                 chooser.setFileFilter(filter);
                 int returnVal = chooser.showOpenDialog(sendPhoto);
-                if (returnVal == JFileChooser.APPROVE_OPTION ) {
+                if (returnVal == JFileChooser.APPROVE_OPTION)
+                {
                     photoSend(convertPicture(chooser.getSelectedFile().getAbsolutePath()));
                 }
             }
@@ -289,16 +292,31 @@ public class MulticastServer
         userControlsPanel.setSize(500, 500);
         userControlsPanel.setLayout(new BorderLayout());
 
-        JPanel inputPanel =  new JPanel(new BorderLayout());
-        pidComboBox = new JComboBox<String>();
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        try
+        {
+            pidComboBox = new JComboBox<String>(RestCaller.getAllPid(this));
+        }
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
         inputPanel.add(pidComboBox, BorderLayout.WEST);
         JPanel innerInputPanel = new JPanel(new BorderLayout());
 
-        innerInputPanel.add(userMessageInput,BorderLayout.WEST);
+        innerInputPanel.add(userMessageInput, BorderLayout.WEST);
         innerInputPanel.add(userMessageInputButton, BorderLayout.EAST);
-        innerInputPanel.add(sendPhoto,BorderLayout.AFTER_LAST_LINE);
+        innerInputPanel.add(sendPhoto, BorderLayout.AFTER_LAST_LINE);
 
-        inputPanel.add(innerInputPanel,BorderLayout.EAST);
+        inputPanel.add(innerInputPanel, BorderLayout.EAST);
 
 
         userControlsPanel.add(inputPanel, BorderLayout.EAST);
@@ -455,8 +473,8 @@ public class MulticastServer
                         outgoing = startSendingThread();
                         incoming = startReceivingThread();
                         heartbeat = startHeartbeatThread();
-                        if(!serverState.equals(ServerState.LEADER))
-                        timeoutThread = startTimeOutThread();
+                        if (!serverState.equals(ServerState.LEADER))
+                            timeoutThread = startTimeOutThread();
                     }
                 }
                 catch (IOException e1)
@@ -493,7 +511,7 @@ public class MulticastServer
         westControlsPanel.add(serverStatusButton, BorderLayout.WEST);
         centralControlsPanel.add(serverTimeoutButton, BorderLayout.BEFORE_FIRST_LINE);
 
-        centralControlsPanel.add(deleteButton,BorderLayout.WEST);
+        centralControlsPanel.add(deleteButton, BorderLayout.WEST);
         centralControlsPanel.add(heartbeatButton, BorderLayout.CENTER);
         centralControlsPanel.add(serverKillButton, BorderLayout.AFTER_LAST_LINE);
 
@@ -530,13 +548,15 @@ public class MulticastServer
             e.printStackTrace();
         }
     }
-    private void photoSend(String base){
+
+    private void photoSend(String base)
+    {
         try
         {
-            AppPacket outgoingPacket = new AppPacket(getId(), AppPacket.PacketType.PICTURE, getLeaderId(), getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1,PICTURE.ordinal(), base);
+            AppPacket outgoingPacket = new AppPacket(getId(), AppPacket.PacketType.PICTURE, getLeaderId(), getTerm(), -1, LeaderPacket.getNextSequenceNumber(), -1, PICTURE.ordinal(), base);
             getOutgoingLocalStorage().put(outgoingPacket.getSequenceNumber(), new LeaderPacket(outgoingPacket));
             consoleMessage("Photo is being sent from leader", 1);
-            getMulticastSocket().send(outgoingPacket.getDatagram(getGroup(),getPort()));
+            getMulticastSocket().send(outgoingPacket.getDatagram(getGroup(), getPort()));
         }
         catch (IOException e)
         {
@@ -544,17 +564,21 @@ public class MulticastServer
         }
 
     }
+
     public String convertPicture(String fileName)
     {
-    //35kb cap
+        //35kb cap
         String encodedFile = "";
-        try {
+        try
+        {
             File f = new File(fileName);
             byte[] fileBytes = loadFile(f);
             byte[] encoded = Base64.encodeBase64(fileBytes);
-            encodedFile  = new String(encoded);
+            encodedFile = new String(encoded);
             return encodedFile;
-        }catch(IOException e){
+        }
+        catch (IOException e)
+        {
             e.printStackTrace();
         }
         return encodedFile;
@@ -565,20 +589,23 @@ public class MulticastServer
         InputStream is = new FileInputStream(file);
 
         long length = file.length();
-        if (length > Integer.MAX_VALUE) {
+        if (length > Integer.MAX_VALUE)
+        {
             // File is too large
         }
-        byte[] bytes = new byte[(int)length];
+        byte[] bytes = new byte[(int) length];
 
         int offset = 0;
         int numRead = 0;
         while (offset < bytes.length
-                && (numRead=is.read(bytes, offset, bytes.length-offset)) >= 0) {
+                && (numRead = is.read(bytes, offset, bytes.length - offset)) >= 0)
+        {
             offset += numRead;
         }
 
-        if (offset < bytes.length) {
-            throw new IOException("Could not completely read file "+file.getName());
+        if (offset < bytes.length)
+        {
+            throw new IOException("Could not completely read file " + file.getName());
         }
 
         is.close();
@@ -606,7 +633,7 @@ public class MulticastServer
         //System.out.println("ADDING CM " + textFromGUI);
         try
         {
-            linkedBlockingClientMessageQueue.put(new Pair<String, String>(pID,textFromGUI));
+            linkedBlockingClientMessageQueue.put(new Pair<String, String>(pID, textFromGUI));
         }
         catch (InterruptedException e)
         {
@@ -739,7 +766,8 @@ public class MulticastServer
      */
     public void followerParse(AppPacket receivedPacket)
     {
-        if(receivedPacket.getTerm() < term){
+        if (receivedPacket.getTerm() < term)
+        {
             return;
         }
         try
@@ -759,32 +787,32 @@ public class MulticastServer
                         consoleError("SHOULDNT SEE THIS", 2);
                         break;
                     case COMMENT:
-                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), ACK.ordinal(),"");
+                        AppPacket ackPacket = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), ACK.ordinal(), "");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ackPacket.getDatagram(group, PORT));
                         consoleMessage("Acking commit request confirmation for " + receivedPacket.toString(), 2);
                         break;
                     case COMMIT:
                         AppPacket localPacketFromIncomingStorage = incomingLocalStorage.get(getIncomingStorageKey(receivedPacket));
-                        String receivedLogIndex = receivedPacket.getLogIndex()+"";
+                        String receivedLogIndex = receivedPacket.getLogIndex() + "";
                         String actualDataFromIncomingStorage = localPacketFromIncomingStorage.getReadableData();
-                        if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT))
+                        if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT))
                         {
                             int split = actualDataFromIncomingStorage.indexOf(" ");
-                            String pid = actualDataFromIncomingStorage.substring(0,split+1);
-                            actualDataFromIncomingStorage = actualDataFromIncomingStorage.substring(split+1,actualDataFromIncomingStorage.length());
-                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),actualDataFromIncomingStorage, pid);
-                            consoleMessage("Committed Packet: #%s" + pid + " " + localPacketFromIncomingStorage.toString() , 2);
+                            String pid = actualDataFromIncomingStorage.substring(0, split + 1);
+                            actualDataFromIncomingStorage = actualDataFromIncomingStorage.substring(split + 1, actualDataFromIncomingStorage.length());
+                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), actualDataFromIncomingStorage, pid);
+                            consoleMessage("Committed Packet: #%s" + pid + " " + localPacketFromIncomingStorage.toString(), 2);
                         }
-                        else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
+                        else if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                         {
-                            int pid = RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(),receivedPacket.getReadableData()).getKey();
-                            pidComboBox.addItem(pid+"");
+                            int pid = RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), receivedPacket.getReadableData()).getKey();
+                            pidComboBox.addItem(pid + "");
                             consoleMessage("Committed Packet: #%s" + receivedPacket.getReadableData(), 2);
                         }
                         else
                         {
-                            consoleError("big issue type was :" + AppPacket.PacketType.fromInt(receivedPacket.getDataType()),1);
+                            consoleError("big issue type was :" + AppPacket.PacketType.fromInt(receivedPacket.getDataType()), 1);
                         }
                         latestLogIndex = receivedPacket.getLogIndex();
                         break;
@@ -792,10 +820,10 @@ public class MulticastServer
                         parseHeartbeat(receivedPacket);
                         break;
                     case PICTURE:
-                        AppPacket ack = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(),ACK.ordinal(), "");
+                        AppPacket ack = new AppPacket(serverId, ACK, leaderId, term, groupCount, receivedPacket.getSequenceNumber(), receivedPacket.getLogIndex(), ACK.ordinal(), "");
                         incomingLocalStorage.put(getIncomingStorageKey(receivedPacket), receivedPacket);
                         multicastSocket.send(ack.getDatagram(group, PORT));
-                        consoleMessage("Acking commit request confirmation for " + receivedPacket.toString()+ " (Type photo)", 2);
+                        consoleMessage("Acking commit request confirmation for " + receivedPacket.toString() + " (Type photo)", 2);
                         break;
                 }
             }
@@ -813,7 +841,7 @@ public class MulticastServer
                             leaderId = -1;
                             lastVotedElection = (int) receivedPacket.getTerm();
                             AppPacket votePacket = new AppPacket(serverId, AppPacket.PacketType.VOTE,
-                                    leaderId, lastVotedElection, groupCount, 0, 0,AppPacket.PacketType.VOTE.ordinal(), Integer.toString(receivedPacket.getServerId()));
+                                    leaderId, lastVotedElection, groupCount, 0, 0, AppPacket.PacketType.VOTE.ordinal(), Integer.toString(receivedPacket.getServerId()));
                             multicastSocket.send(votePacket.getDatagram(group, PORT));
                             consoleMessage("voting in term " + term + " for server " + receivedPacket
                                     .getServerId(), 2);
@@ -853,7 +881,8 @@ public class MulticastServer
 
     public void candidateParse(AppPacket receivedPacket)
     {
-        if(receivedPacket.getTerm() < term){
+        if (receivedPacket.getTerm() < term)
+        {
             return;
         }
         switch (receivedPacket.getType())
@@ -908,23 +937,26 @@ public class MulticastServer
                 {
 
                     latestLogIndex = receivedPacket.getLogIndex();
-                    if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT)){
+                    if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(COMMENT))
+                    {
                         int split = receivedPacket.getReadableData().indexOf(" ");
-                        String pid = receivedPacket.getReadableData().substring(0,split+1);
-                        String comment = receivedPacket.getReadableData().substring(split+1,receivedPacket.getReadableData().length());
-                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()),comment, pid);
+                        String pid = receivedPacket.getReadableData().substring(0, split + 1);
+                        String comment = receivedPacket.getReadableData().substring(split + 1, receivedPacket.getReadableData().length());
+                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), comment, pid);
                     }
-                    else if(AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
+                    else if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                     {
                         RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), receivedPacket.getReadableData());
                     }
                 }
-                else if(receivedPacket.getHighest() < latestLogIndex){
+                else if (receivedPacket.getHighest() < latestLogIndex)
+                {
                     latestLogIndex = (int) receivedPacket.getHighest();
                     RestCaller.rollBack(this);
+                    updateComboBox();
                 }
                 System.out.println(serverId + " receivedPacket.getReadableData() = " + receivedPacket.getReadableData());
-                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, HEARTBEAT_ACK.ordinal(),latestLogIndex + "");
+                AppPacket heartbeatAckPacket = new AppPacket(serverId, AppPacket.PacketType.HEARTBEAT_ACK, leaderId, term, groupCount, -1, latestLogIndex, HEARTBEAT_ACK.ordinal(), latestLogIndex + "");
 
                 if (heartbeatDebug)
                 {
@@ -941,6 +973,32 @@ public class MulticastServer
         {
             e.printStackTrace();
         }
+    }
+
+    private void updateComboBox()
+    {
+        try
+        {
+            pidComboBox.removeAllItems();
+            String[] pids = RestCaller.getAllPid(this);
+            for (int i = 0; i < pids.length; i++)
+            {
+                pidComboBox.addItem(pids[i]);
+            }
+        }
+        catch (URISyntaxException e)
+        {
+            e.printStackTrace();
+        }
+        catch (HttpException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 
     private String getIncomingStorageKey(AppPacket receivedPacket)
@@ -961,16 +1019,20 @@ public class MulticastServer
             switch (receivedPacket.getType())
             {
                 case ACK:
-                    if(receivedPacket.getTerm() < term){
+                    if (receivedPacket.getTerm() < term)
+                    {
                         return;
                     }
                     LeaderPacket ackedLeaderPacket = outgoingLocalStorage.get(receivedPacket.getSequenceNumber());
 
-                    Pair<Integer,String> data = ackedLeaderPacket.confirm(getMajority(), this);
+                    Pair<Integer, String> data = ackedLeaderPacket.confirm(getMajority(), this);
                     //make sure the log index returned from committing is valid
                     if (data.getKey() > -1)
                     {
-                        pidComboBox.addItem(data.getKey()+"");
+                        if (AppPacket.PacketType.fromInt(ackedLeaderPacket.getPacket().getDataType()).equals(PICTURE))
+                        {
+                            pidComboBox.addItem(data.getKey() + "");
+                        }
                         consoleMessage("\nLeader Committed " + ackedLeaderPacket.toString() + "\n", 2);
                         latestLogIndex++;
                         //all is well. The log was committed to this leader's persistent db at the committedLogIndex.
@@ -979,7 +1041,7 @@ public class MulticastServer
                         //we send the current term number of the leader because if it doesn't match what the followers have this packet stored as, they should not commit it to their db
                         System.out.println("********************* data " + data.getKey());
                         System.out.println("********************* data " + data.getValue());
-                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), data.getKey(),ackedLeaderPacket.getPacket().getDataType(), data.getValue());
+                        AppPacket commitPacket = new AppPacket(serverId, COMMIT, leaderId, term, groupCount, ackedLeaderPacket.getSequenceNumber(), data.getKey(), ackedLeaderPacket.getPacket().getDataType(), data.getValue());
                         if (term == ackedLeaderPacket.getTerm())
                         {
                             //send the commit command to all followers of this leader
@@ -994,7 +1056,8 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
-                    if(receivedPacket.getTerm() < term){
+                    if (receivedPacket.getTerm() < term)
+                    {
                         return;
                     }
                     followerStatusMap.put(receivedPacket.getServerId(), receivedPacket.getLogIndex());
@@ -1004,7 +1067,7 @@ public class MulticastServer
                     }
                     break;
                 case COMMENT:
-                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, COMMENT.ordinal(),receivedPacket.getReadableData());
+                    AppPacket redirectPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, COMMENT.ordinal(), receivedPacket.getReadableData());
                     getOutgoingLocalStorage().put(redirectPacket.getSequenceNumber(), new LeaderPacket(redirectPacket));
 
                     consoleMessage("Sending " + redirectPacket.toString(), 2);
@@ -1012,7 +1075,7 @@ public class MulticastServer
                     clearOutgoingData();
                     break;
                 case PICTURE:
-                    AppPacket redirPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, PICTURE.ordinal(),receivedPacket.getReadableData());
+                    AppPacket redirPacket = new AppPacket(serverId, receivedPacket.getType(), leaderId, term, getLatestLogIndex(), -1, -1, PICTURE.ordinal(), receivedPacket.getReadableData());
                     getOutgoingLocalStorage().put(redirPacket.getSequenceNumber(), new LeaderPacket(redirPacket));
 
                     consoleMessage("Sending Photo " + redirPacket.toString(), 2);
@@ -1232,11 +1295,11 @@ public class MulticastServer
     }
 
 
-    public Pair<String,String> getClientMessageToSend()
+    public Pair<String, String> getClientMessageToSend()
     {
         try
         {
-            Pair<String,String> take = linkedBlockingClientMessageQueue.take();
+            Pair<String, String> take = linkedBlockingClientMessageQueue.take();
             return take;
         }
         catch (InterruptedException e)

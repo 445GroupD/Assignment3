@@ -19,6 +19,7 @@ import server.MulticastServer;
 import server.Packet.AppPacket;
 
 import java.io.IOException;
+import java.net.InterfaceAddress;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -32,12 +33,12 @@ public class RestCaller
     private static final String TAG = "SeenRestCaller";
     private static final String REST_API_URL = "https://c445a3.herokuapp.com";
 
-    public static Pair<Integer,String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
+    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
     {
         return postLog(server, logIndex, type, log, "");
     }
 
-    public static Pair<Integer,String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
+    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
     {
         log = URLEncoder.encode(log, "UTF-8");
         pid = URLEncoder.encode(pid.trim(), "UTF-8");
@@ -46,7 +47,7 @@ public class RestCaller
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
 
-        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString()+(type.equals(AppPacket.PacketType.COMMENT)?"?pid=" +pid: "");
+        String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString() + (type.equals(AppPacket.PacketType.COMMENT) ? "?pid=" + pid : "");
         System.out.println("restUri " + restUri);
         HttpPost httpPost = new HttpPost(restUri);
         httpPost.setHeader("Content-type", "application/x-www-form-urlencoded");
@@ -62,33 +63,37 @@ public class RestCaller
         // Execute HTTP Post Request
         server.consoleMessage("Sending Post request to " + restUri, 2);
 
-        HttpResponse response = httpClient.execute(httpPost);
 
-        String resultJson = EntityUtils.toString(response.getEntity());
-        System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
-
-        JSONObject resultJsonObject = new JSONObject(resultJson);
-
-        int resultantLogIndex;
-        String pictureData = "";
-        try
+        for (; ; )
         {
-            if (resultJsonObject.get("type").equals(AppPacket.PacketType.PICTURE.toString()))
+            try
             {
+                HttpResponse response = httpClient.execute(httpPost);
+                String resultJson = EntityUtils.toString(response.getEntity());
+                System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
 
-                resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
-                pictureData = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+                JSONObject resultJsonObject = new JSONObject(resultJson);
+
+                int resultantLogIndex;
+                String pictureData = "";
+                if (resultJsonObject.get("type").equals(AppPacket.PacketType.PICTURE.toString()))
+                {
+
+                    resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+                    pictureData = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
+                }
+                else
+                {
+                    resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+                }
+
+                return new Pair<Integer, String>(resultantLogIndex, pictureData);
             }
-            else
+            catch (JSONException e)
             {
-                resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
+                server.consoleError("Timed out trying again at " + restUri, 1);
             }
         }
-        catch (Exception e)
-        {
-            resultantLogIndex = -1;
-        }
-        return new Pair<Integer,String>(resultantLogIndex,pictureData);
     }
 
     public static Pair<String, AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
@@ -125,7 +130,7 @@ public class RestCaller
                 {
                     resultantLogIndex = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
                 }
-                if(resultJsonObject.getString("type").equals("COMMENT"))
+                if (resultJsonObject.getString("type").equals("COMMENT"))
                 {
                     String pid = resultJsonObject.getString("pid");
                     resultantLogIndex = pid + " " + resultantLogIndex;
@@ -236,7 +241,8 @@ public class RestCaller
 
         return new JSONObject(resultJson).getInt("seq");
     }
-    public static List<String> getAllPid(MulticastServer server) throws URISyntaxException, HttpException, IOException
+
+    public static String[] getAllPid(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Get Sequence number
         HttpClient httpClient = new DefaultHttpClient();
@@ -252,9 +258,22 @@ public class RestCaller
         String resultJson = EntityUtils.toString(response.getEntity());
         System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
         List<String> pids = new ArrayList<String>();
-        new JSONObject(resultJson);
+        JSONObject resultJsonObject = new JSONObject(resultJson);
 
-        return null;
+        if (resultJsonObject.has("pids"))
+        {
+            JSONArray jsonPids = resultJsonObject.getJSONArray("pids");
+            for (int i = 0; i < jsonPids.length(); i++)
+            {
+                pids.add(jsonPids.getInt(i) + "");
+            }
+        }
+        else
+        {
+            server.consoleError("returned json did not contain pids JSON: " + resultJsonObject.toString(), 1);
+        }
+
+        return pids.toArray(new String[pids.size()]);
     }
 
 
