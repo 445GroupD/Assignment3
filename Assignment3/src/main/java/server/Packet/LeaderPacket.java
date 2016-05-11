@@ -1,5 +1,6 @@
 package server.Packet;
 
+import javafx.util.Pair;
 import org.apache.http.HttpException;
 import server.MulticastServer;
 import utils.WebService.RestCaller;
@@ -62,9 +63,10 @@ public class LeaderPacket
      * @param majority
      * @return
      */
-    public int confirm(int majority, MulticastServer server) throws HttpException, IOException, URISyntaxException
+    public Pair<Integer, String> confirm(int majority, MulticastServer server) throws HttpException, IOException, URISyntaxException
     {
         //increment the number of acks this packet has received
+        Pair<Integer,String> returnedPair = new Pair(logIndex,"");
         acksReceived++;
         if (!alreadyCommittedToDB)
         {
@@ -76,23 +78,23 @@ public class LeaderPacket
                     int split = packet.getReadableData().indexOf(" ");
                     String pid = packet.getReadableData().substring(0, split + 1);
                     String comment = packet.getReadableData().substring(split + 1, packet.getReadableData().length());
-                    logIndex = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), comment, pid);
+                    returnedPair = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), comment, pid);
                 }
                 else if (AppPacket.PacketType.fromInt(packet.getDataType()).equals(PICTURE))
                 {
-                    logIndex = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), packet.getReadableData());
+                    returnedPair = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), packet.getReadableData());
                 }
                 //set already committed so this packet is not committed on the next ack
                 alreadyCommittedToDB = true;
 
                 //return the logIndex as true to the caller so it can tell the others to commit, too
-                return logIndex;
+                return returnedPair;
             }
         }
 
         //nothing interesting happened.
         //Return -1 as false so the caller doesn't tell the others to commit.
-        return -1;
+        return new Pair<Integer, String>(-1,"");
     }
 
 
