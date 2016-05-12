@@ -7,14 +7,16 @@ import java.io.IOException;
 import java.util.Random;
 
 /**
- * Created by zsabin on 4/28/16.
+ * Created by zsabin and adavis20 on 4/28/16.
+ * This thread is used to control the timeout for FOLLOWERS and CANDIDATES
+ * 
  */
 public class TimeoutThread implements Runnable
 {
     public static final int MIN_TIMEOUT = 2500;
     public static final int MAX_TIMEOUT = 3000;
     private final MulticastServer server;
-
+    
     public TimeoutThread(MulticastServer server)
     {
         this.server = server;
@@ -23,8 +25,11 @@ public class TimeoutThread implements Runnable
     @Override
     public void run()
     {
+        //This while loop checks to see if the current server is not A LEADER (Leaders do not need timeout threads)
+        // Also checks to see if the sever is currently "Alive"
         while (!server.isLeader() && !server.getDebugKill())
         {
+            //This initializes the first timeOut for A server
             server.resetTimeout();
             long timeLeft;
             do {
