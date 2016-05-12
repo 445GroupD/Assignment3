@@ -11,8 +11,8 @@ import java.util.Random;
  */
 public class TimeoutThread implements Runnable
 {
-    public static final int MIN_TIMEOUT = 1300;
-    public static final int MAX_TIMEOUT = 2600;
+    public static final int MIN_TIMEOUT = 2500;
+    public static final int MAX_TIMEOUT = 3000;
     private final MulticastServer server;
 
     public TimeoutThread(MulticastServer server)
