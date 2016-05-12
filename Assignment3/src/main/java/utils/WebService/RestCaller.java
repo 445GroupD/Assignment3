@@ -33,21 +33,41 @@ public class RestCaller
     private static final String TAG = "SeenRestCaller";
     private static final String REST_API_URL = "https://c445a3.herokuapp.com";
 
-    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log) throws URISyntaxException, HttpException, IOException
+    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, boolean leader) throws URISyntaxException, HttpException, IOException
     {
-        return postLog(server, logIndex, type, log, "");
+        return postLog(server, logIndex, type, log, "", leader);
     }
 
-    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid) throws URISyntaxException, HttpException, IOException
+    public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, String pid, boolean leader) throws URISyntaxException, HttpException, IOException
     {
         log = URLEncoder.encode(log, "UTF-8");
         pid = URLEncoder.encode(pid.trim(), "UTF-8");
+        String leaderString = URLEncoder.encode((leader + "").trim(), "UTF-8");
 
+
+        String pictureName = "img_" + System.currentTimeMillis();
+        String encodedPictureName = URLEncoder.encode(pictureName, "UTF-8");
+        pictureName = pictureName +".png";
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
 
         String restUri = REST_API_URL + "/logs/" + server.getId() + "/" + logIndex + "/" + log + "/" + type.toString() + (type.equals(AppPacket.PacketType.COMMENT) ? "?pid=" + pid : "");
+
+        if (leader)
+        {
+            if (restUri.contains("?pid="))
+            {
+                restUri = restUri + "&leader=" + leaderString + "&imageFileName=" + encodedPictureName;
+            }
+            else
+            {
+                restUri = restUri + "?leader=" + leaderString + "&imageFileName=" + encodedPictureName;
+            }
+        }
+
+
+
         System.out.println("restUri " + restUri);
         HttpPost httpPost = new HttpPost(restUri);
         httpPost.setHeader("Content-type", "application/x-www-form-urlencoded");
@@ -62,47 +82,16 @@ public class RestCaller
 
         // Execute HTTP Post Request
         server.consoleMessage("Sending Post request to " + restUri, 2);
-
-
-        for (; ; )
+        try
         {
-            try
-            {
-                HttpResponse response = httpClient.execute(httpPost);
-                String resultJson = EntityUtils.toString(response.getEntity());
-                System.out.println(server.getId() + " RESPONSE JSON: " + resultJson);
-
-                JSONObject resultJsonObject = new JSONObject(resultJson);
-
-                int resultantLogIndex;
-                String pictureData = "";
-                if (resultJsonObject.get("type").equals(AppPacket.PacketType.PICTURE.toString()))
-                {
-
-                    resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
-                    pictureData = String.valueOf(resultJsonObject.has("data") ? resultJsonObject.get("data") : "");
-                }
-                else
-                {
-                    resultantLogIndex = Integer.parseInt(String.valueOf(resultJsonObject.has("index") ? resultJsonObject.get("index") : "-1"));
-                }
-
-                return new Pair<Integer, String>(resultantLogIndex, pictureData);
-            }
-            catch (JSONException e)
-            {
-                try
-                {
-                    Thread.sleep(1000);
-                }
-                catch (InterruptedException e1)
-                {
-                    e1.printStackTrace();
-                }
-                server.consoleError("Timed out trying again at " + restUri, 1);
-            }
+            HttpResponse response = httpClient.execute(httpPost);
+            return new Pair<Integer, String>(Integer.parseInt(logIndex), pictureName);
+        }
+        catch (JSONException e){
+             return new Pair<Integer, String>(Integer.parseInt(logIndex),pictureName);
         }
     }
+
 
     public static Pair<String, AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
     {

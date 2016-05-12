@@ -9,6 +9,9 @@ import java.net.InetAddress;
 
 import static java.lang.String.format;
 
+/**
+ *
+ */
 public class AppPacket
 {
     public static final int PACKET_SIZE = 10000;
@@ -25,10 +28,16 @@ public class AppPacket
     private final int logIndex;
 
 
-
     private final int dataType;
 
     //Receiver
+
+    /**
+     * Constructor for an AppPacket from a byte array. This is used when receiving a packet to convert it into an more
+     * easily managed object.
+     *
+     * @param data byte array of a packet that contains all the data.
+     */
     public AppPacket(byte[] data)
     {
         this.serverId = AppUtils.bytesToInt(ArrayUtils.subarray(data, 0, 4));
@@ -43,8 +52,20 @@ public class AppPacket
         headerSize = 0;
     }
 
-    //Sender
-    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int sequenceNumber, int logIndex, int dataType ,String data)
+    /**
+     * Constructor for AppPacket that takes all the parameters needed to create an AppPacket
+     *
+     * @param serverId       serverId of the server that is creating this packet
+     * @param type           what type of packet is being sent.
+     * @param leaderId       the currently believed leader
+     * @param term           the current term
+     * @param member         how many members are in the group
+     * @param sequenceNumber the current sequence number
+     * @param logIndex       the logIndex of this log
+     * @param dataType       the type of log that was sent
+     * @param data           the actual data
+     */
+    public AppPacket(int serverId, PacketType type, int leaderId, long term, long member, int sequenceNumber, int logIndex, int dataType, String data)
     {
         this.serverId = serverId;
         this.type = type;
@@ -59,11 +80,19 @@ public class AppPacket
         this.data = fill(data);
     }
 
+    /**
+     * fills the body field if to fill the packet, these will be trimmed when received.
+     *
+     * @param data the data that needs to be appended to to fill the packet
+     * @return the new filled byte array.
+     */
     private byte[] fill(String data)
     {
         int fill = PACKET_SIZE - headerSize - data.length();
-        if(type.equals(PacketType.PICTURE)){
-            System.out.println("Picture Data FILL size = " + fill);;
+        if (type.equals(PacketType.PICTURE))
+        {
+            System.out.println("Picture Data FILL size = " + fill);
+            ;
             System.out.println("Picture Data Length = " + data.length());
         }
         for (int i = 0; i < fill; i++)
@@ -81,6 +110,13 @@ public class AppPacket
         return null;
     }
 
+    /**
+     * method to get a datagram packet from an AppPacket
+     *
+     * @param address address you want to send to.
+     * @param port    port you want to send to.
+     * @return the DatagramPacket that was made from this AppPacket
+     */
     public DatagramPacket getDatagram(InetAddress address, int port)
     {
 
@@ -95,31 +131,61 @@ public class AppPacket
         return new DatagramPacket(datagramArray, datagramArray.length, address, port);
     }
 
+    /**
+     * gets the body of the AppPacket
+     *
+     * @return body of the AppPacket
+     */
     public byte[] getData()
     {
         return data;
     }
 
+    /**
+     * gets the server id of the AppPacket
+     *
+     * @return gets the server id of the AppPacket
+     */
     public int getServerId()
     {
         return serverId;
     }
 
+    /**
+     * gets the Type of packet of the AppPacket
+     *
+     * @return Type of packet of the AppPacket
+     */
     public PacketType getType()
     {
         return type;
     }
 
+    /**
+     * gets the log type of the AppPacket
+     *
+     * @return log type of the AppPacket
+     */
     public int getDataType()
     {
         return dataType;
     }
 
+    /**
+     * gets the LeaderId of the AppPacket
+     *
+     * @return LeaderId of the AppPacket
+     */
     public long getLeaderId()
     {
         return leaderId;
     }
 
+    /**
+     * gets the term of the AppPacket
+     *
+     * @return term of the AppPacket
+     */
     public long getTerm()
     {
         return term;
@@ -150,12 +216,18 @@ public class AppPacket
         return new String(getData()).trim();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString()
     {
         return format("Packet { From: %s | Term: %s | Sequence No: %s | Data: %s }", serverId, term, sequenceNumber, getReadableData());
     }
 
+    /**
+     * Enum for what type of data the packet contains
+     */
     public enum PacketType
     {
         PICTURE(0)
@@ -254,9 +326,9 @@ public class AppPacket
 
         public static PacketType fromString(String ident)
         {
-            for (PacketType current :PacketType.values())
+            for (PacketType current : PacketType.values())
             {
-                if(ident.equals(current.toString()))
+                if (ident.equals(current.toString()))
                 {
                     return current;
                 }

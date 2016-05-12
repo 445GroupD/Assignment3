@@ -63,7 +63,7 @@ public class LeaderPacket
      * @param majority
      * @return
      */
-    public Pair<Integer, String> confirm(int majority, MulticastServer server) throws HttpException, IOException, URISyntaxException
+    public Pair<Integer, String> confirm(int majority,MulticastServer server) throws HttpException, IOException, URISyntaxException
     {
         //increment the number of acks this packet has received
         Pair<Integer,String> returnedPair = new Pair(logIndex,"");
@@ -78,11 +78,11 @@ public class LeaderPacket
                     int split = packet.getReadableData().indexOf(" ");
                     String pid = packet.getReadableData().substring(0, split + 1);
                     String comment = packet.getReadableData().substring(split + 1, packet.getReadableData().length());
-                    returnedPair = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), comment, pid);
+                    returnedPair = RestCaller.postLog(server, server.getLatestLogIndex()+1+"", AppPacket.PacketType.fromInt(packet.getDataType()), comment, pid,true);
                 }
                 else if (AppPacket.PacketType.fromInt(packet.getDataType()).equals(PICTURE))
                 {
-                    returnedPair = RestCaller.postLog(server, "create", AppPacket.PacketType.fromInt(packet.getDataType()), packet.getReadableData());
+                    returnedPair = RestCaller.postLog(server, server.getLatestLogIndex()+1+"", AppPacket.PacketType.fromInt(packet.getDataType()), packet.getReadableData(),true);
                 }
                 //set already committed so this packet is not committed on the next ack
                 alreadyCommittedToDB = true;

@@ -801,12 +801,12 @@ public class MulticastServer
                             int split = actualDataFromIncomingStorage.indexOf(" ");
                             String pid = actualDataFromIncomingStorage.substring(0, split + 1);
                             actualDataFromIncomingStorage = actualDataFromIncomingStorage.substring(split + 1, actualDataFromIncomingStorage.length());
-                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), actualDataFromIncomingStorage, pid);
+                            RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), actualDataFromIncomingStorage, pid, false);
                             consoleMessage("Committed Packet: #%s" + pid + " " + localPacketFromIncomingStorage.toString(), 2);
                         }
                         else if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                         {
-                            int pid = RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), receivedPacket.getReadableData()).getKey();
+                            int pid = RestCaller.postLog(this, receivedLogIndex, localPacketFromIncomingStorage.getType(), receivedPacket.getReadableData(), false).getKey();
                             pidComboBox.addItem(pid + "");
                             consoleMessage("Committed Packet: #%s" + receivedPacket.getReadableData(), 2);
                         }
@@ -926,6 +926,12 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Parses a Heartbeat packet
+     *
+     * @param receivedPacket the AppPacket representation of a received heartbeat
+     * @throws IOException
+     */
     private void parseHeartbeat(AppPacket receivedPacket) throws IOException
     {
 
@@ -942,11 +948,11 @@ public class MulticastServer
                         int split = receivedPacket.getReadableData().indexOf(" ");
                         String pid = receivedPacket.getReadableData().substring(0, split + 1);
                         String comment = receivedPacket.getReadableData().substring(split + 1, receivedPacket.getReadableData().length());
-                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), comment, pid);
+                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), comment, pid, false);
                     }
                     else if (AppPacket.PacketType.fromInt(receivedPacket.getDataType()).equals(PICTURE))
                     {
-                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), receivedPacket.getReadableData());
+                        RestCaller.postLog(this, latestLogIndex + "", AppPacket.PacketType.fromInt(receivedPacket.getDataType()), receivedPacket.getReadableData(), false);
                     }
                 }
                 else if (receivedPacket.getHighest() < latestLogIndex)
@@ -975,6 +981,9 @@ public class MulticastServer
         }
     }
 
+    /**
+     * when a new pictureID is received it gets added to the combobox
+     */
     private void updateComboBox()
     {
         try
@@ -1001,6 +1010,10 @@ public class MulticastServer
 
     }
 
+    /**
+     * @param receivedPacket
+     * @return
+     */
     private String getIncomingStorageKey(AppPacket receivedPacket)
     {
         return receivedPacket.getLeaderId() + " " + receivedPacket.getSequenceNumber() + " " + receivedPacket.getTerm();
@@ -1008,7 +1021,9 @@ public class MulticastServer
 
 
     /**
-     * @param receivedPacket
+     * when receiving a packet will switch on the type of packet and act accordingly.
+     *
+     * @param receivedPacket the received AppPacket
      */
     public void leaderParse(AppPacket receivedPacket)
     {
