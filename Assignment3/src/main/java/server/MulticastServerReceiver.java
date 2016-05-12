@@ -36,10 +36,12 @@ public class MulticastServerReceiver implements Runnable
                 packet = new DatagramPacket(buf, buf.length, server.getGroup(), server.getPort());
                 server.getMulticastSocket().receive(packet);
                 receivedPacket = new AppPacket(packet.getData());
+                //This method is used to change keep the current leader updated if the server is falling behind
                 server.updateStateAndLeader(receivedPacket);
+                //Checks to see if the packets serverID is not from Ourselves (recieved a packet we recently sent)
                 if(receivedPacket.getServerId() != server.getId())
                 {
-
+                //Depending on the servers current state, the packet will be handled differently
                     if (server.isLeader())
                     {
                         System.out.println("calling leader parse " + server.getId());
