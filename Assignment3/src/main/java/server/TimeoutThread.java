@@ -29,22 +29,25 @@ public class TimeoutThread implements Runnable
         // Also checks to see if the sever is currently "Alive"
         while (!server.isLeader() && !server.getDebugKill())
         {
-            //This initializes the first timeOut for A server
+            //This initializes the first timeOut for A server and resets it after an election starts
             server.resetTimeout();
             long timeLeft;
             do {
+                //This gets the difference between the last time out timeout was reset and the current time
                 timeLeft = System.currentTimeMillis() - server.getStartTime();
                 if(server.isLeader() || server.getDebugKill()){
                     server.consoleMessage("Killing Timeout Thread", 2);
                     return;
                 }
             }
+            //This checks that the time that has passed since the last time out is not greater than the current timeout
             while (timeLeft < server.getTimeout());
-
+            // If the previous check fails, a timeout occurs and an election starts
             server.consoleMessage("Server timed out", 2);
             if (server.isLeader()) {return; }
+            //Changes the servers state to a canidate
             server.changeServerState(MulticastServer.ServerState.CANIDATE);
-
+            
             //start election
             server.consoleMessage("Sending Vote Requests", 2);
             AppPacket voteRequest = new AppPacket(server.getId(), AppPacket.PacketType.VOTE_REQUEST, server.getLeaderId(),
