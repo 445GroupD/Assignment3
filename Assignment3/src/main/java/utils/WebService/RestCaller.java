@@ -33,6 +33,19 @@ public class RestCaller
     private static final String TAG = "SeenRestCaller";
     private static final String REST_API_URL = "https://c445a3.herokuapp.com";
 
+    /**
+     * Creates a Post request without the pid
+     *
+     * @param server   the server making the post
+     * @param logIndex the logIndex of the post
+     * @param type     the type of the post
+     * @param log      the actual data that is being sent
+     * @param leader   whether the server is the leader or not.
+     * @return the pair holding the logindex and the picture name if it is a picture type
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static Pair<Integer, String> postLog(MulticastServer server, String logIndex, AppPacket.PacketType type, String log, boolean leader) throws URISyntaxException, HttpException, IOException
     {
         return postLog(server, logIndex, type, log, "", leader);
@@ -47,7 +60,7 @@ public class RestCaller
 
         String pictureName = "img_" + System.currentTimeMillis();
         String encodedPictureName = URLEncoder.encode(pictureName, "UTF-8");
-        pictureName = pictureName +".png";
+        pictureName = pictureName + ".png";
         // Create a new HttpClient and Post Header
         HttpClient httpClient = new DefaultHttpClient();
         System.out.println("logIndex = " + logIndex);
@@ -65,7 +78,6 @@ public class RestCaller
                 restUri = restUri + "?leader=" + leaderString + "&imageFileName=" + encodedPictureName;
             }
         }
-
 
 
         System.out.println("restUri " + restUri);
@@ -87,12 +99,23 @@ public class RestCaller
             HttpResponse response = httpClient.execute(httpPost);
             return new Pair<Integer, String>(Integer.parseInt(logIndex), pictureName);
         }
-        catch (JSONException e){
-             return new Pair<Integer, String>(Integer.parseInt(logIndex),pictureName);
+        catch (JSONException e)
+        {
+            return new Pair<Integer, String>(Integer.parseInt(logIndex), pictureName);
         }
     }
 
 
+    /**
+     * gets the log data at a specific index
+     *
+     * @param server   the server making the get request
+     * @param logIndex the index of the log data requested
+     * @return a pair containing the log data and the type of log
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static Pair<String, AppPacket.PacketType> getLogByIndex(MulticastServer server, String logIndex) throws URISyntaxException, HttpException, IOException
     {
 
@@ -143,6 +166,15 @@ public class RestCaller
         return new Pair<String, AppPacket.PacketType>(resultantLogIndex, AppPacket.PacketType.HEARTBEAT);
     }
 
+    /**
+     * gets all the logs for a server
+     *
+     * @param server the server making the get request
+     * @return a list of log entrys
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static List<String> getAllLogs(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Post Header
@@ -182,6 +214,15 @@ public class RestCaller
         return logEntry;
     }
 
+    /**
+     * Deletes all log entrys for a server
+     *
+     * @param server the server making the delete request
+     * @return boolean if everything was delete
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static boolean deleteAll(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Post Header
@@ -201,6 +242,15 @@ public class RestCaller
         return true;
     }
 
+    /**
+     * will rollback a server to a certain log index
+     *
+     * @param server the server making the Delete request
+     * @return boolean whether the rollback was successfull or not
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static boolean rollBack(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Post Header
@@ -220,6 +270,15 @@ public class RestCaller
         return true;
     }
 
+    /**
+     * gets the servers latest index number
+     *
+     * @param server the server making the get request
+     * @return Integer representing that servers latest logindex
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static int getLatestIndexNumber(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Get Sequence number
@@ -239,6 +298,15 @@ public class RestCaller
         return new JSONObject(resultJson).getInt("seq");
     }
 
+    /**
+     * gets all the Pids that a server knows about
+     *
+     * @param server the server making the get request
+     * @return String array containing all the Pids
+     * @throws URISyntaxException
+     * @throws HttpException
+     * @throws IOException
+     */
     public static String[] getAllPid(MulticastServer server) throws URISyntaxException, HttpException, IOException
     {
         // Create a new HttpClient and Get Sequence number
