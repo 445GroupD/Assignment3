@@ -549,6 +549,12 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Sends the base64 encoded to the other servers in the network to be committed to the database.
+     * This simulates the receipt of an image from a client.
+     * 
+     * @param base  the base64 encoded string to be sent
+     */
     private void photoSend(String base)
     {
         try
@@ -565,6 +571,12 @@ public class MulticastServer
 
     }
 
+    /**
+     * Converts the file with the specified file name to a base64 encoded string
+     * 
+     * @param fileName  the name of the file to be encoded
+     * @return the file encoded as a base64 String
+     */
     public String convertPicture(String fileName)
     {
         //35kb cap
@@ -720,6 +732,11 @@ public class MulticastServer
         return (int) Math.floor(groupCount / 2);
     }
 
+    /**
+     * Returns the current state of this server
+     * 
+     * @return  the current state of this server
+     */
     public ServerState getServerState()
     {
         serverStateLock.lock();
@@ -755,7 +772,6 @@ public class MulticastServer
         return outgoingLocalStorage;
     }
 
-
     /**
      * Used for servers who are receiving packets from the leader.
      * This is a follower of the leader.
@@ -777,6 +793,7 @@ public class MulticastServer
             {
                 //consoleMessage("Received Valid Packet", 2);
                 resetTimeout();
+                //Updates the term number of to match that of the received packet if the packet has a higher term number
                 if (receivedPacket.getTerm() > term)
                 {
                     term = (int) receivedPacket.getTerm();
@@ -862,6 +879,7 @@ public class MulticastServer
                             //consoleMessage("Packet Type: " + receivedPacket.getType(),2);
                             //consoleMessage("Received a Non-VoteRequest Packet w/ term = our current term. Term Recieved: " + receivedPacket.getTerm() + " || Recieved from server: " + receivedPacket.getServerId(),2);
                         }
+                        //Update the term number of this packet to match that of the received packet
                         term = (int) receivedPacket.getTerm();
 
                         break;
@@ -879,8 +897,19 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Used for servers who have timed out and become a new candidate
+     * <p/>
+     * It will receive votes from followers. If it receives a majority of votes it will convert to a leader
+     * It will ignore vote requests from candidates of the current term, but if it receives any packets, other
+     * then votes and vote requests with a term number greater than or equal to its own it will revert to a
+     * follower as this indicates a leader currently exists.
+     * 
+     * @param receivedPacket    the AppPacket to be parse
+     */
     public void candidateParse(AppPacket receivedPacket)
     {
+        //Ignores packets from old terms
         if (receivedPacket.getTerm() < term)
         {
             return;
@@ -1019,6 +1048,7 @@ public class MulticastServer
             switch (receivedPacket.getType())
             {
                 case ACK:
+                    //Ignores ACKs from old terms
                     if (receivedPacket.getTerm() < term)
                     {
                         return;
@@ -1056,6 +1086,7 @@ public class MulticastServer
                     break;
 
                 case HEARTBEAT_ACK:
+                    //Ignores heartbeat acks from old terms
                     if (receivedPacket.getTerm() < term)
                     {
                         return;
@@ -1098,6 +1129,11 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Updates the state of the server to the specified state and performs any intitalization required
+     * 
+     * @param nextState     The state to update the server to
+     */
     public void changeServerState(ServerState nextState)
     {
         // A candidate changing to a candidate indicates their candidacy failed and they are starting a new election
@@ -1116,6 +1152,7 @@ public class MulticastServer
                     consoleError("Became Leader", 1);
                     leaderId = serverId;
                     timeoutThread = null;
+                    //Start a heartbeat thread
                     heartbeat = startHeartbeatThread();
                     consoleError("Leader after heartbeat", 1);
 
@@ -1124,6 +1161,7 @@ public class MulticastServer
                 {
                     if (timeoutThread == null)
                     {
+                        //Start a timeout thread if one does not already exist for this server
                         timeoutThread = startTimeOutThread();
                     }
                 }
@@ -1184,11 +1222,17 @@ public class MulticastServer
         return serverId;
     }
 
+    /**
+     * Returns the generated timeout value for this server
+     */
     public int getTimeout()
     {
         return timeout;
     }
 
+    /**
+     * Returns the start time for the current timeout cycle for this server
+     */
     public long getStartTime()
     {
         timeoutLock.lock();
@@ -1221,34 +1265,14 @@ public class MulticastServer
     {
         return latestLogIndex;
     }
-
-    ;
-
-    public boolean filterPacket(AppPacket packet)
-    {
-        if (packet.getServerId() == serverId) /* Filter packets from itself */
-        {
-            return false;
-        }
-        else if (packet.getTerm() < term) /* Packet from obsolete term */
-        {
-            return false;
-        }
-        else if (packet.getTerm() == term)
-        {
-            return true;
-        }
-        else /* Packet.term > termNum: A new term has begun.*/
-        {
-            if (leaderId == -1) /* We don't know the leader of the current term so we accept all packets by
-                default */
-            {
-                return true;
-            }
-            return packet.getServerId() == packet.getLeaderId(); /* Accept packet if it is from the new leader */
-        }
-    }
-
+    
+    /**
+     * If the specified packet has a higher term than this servers current term num then update the
+     * leader id to match that of the received packet and revert this server to a follower. A packet
+     * received with a higher term indicates that this server is behind the other servers in the network
+     * and should attempt to catch up by accepting the leader id of the received packet and reverting to
+     * a follower state.
+     */
     public void updateStateAndLeader(AppPacket packet)
     {
         if (packet.getTerm() > term) /* A new term has begun. Update leader and term fields accordingly */
@@ -1279,6 +1303,9 @@ public class MulticastServer
         }
     }
 
+    /**
+     * Generates a new timeout between the MAX and MIN timeout values to be used for this server
+     */ 
     public void resetTimeout()
     {
         int timeout = rand.nextInt(TimeoutThread.MAX_TIMEOUT - TimeoutThread.MIN_TIMEOUT) + TimeoutThread.MIN_TIMEOUT;
@@ -1286,6 +1313,9 @@ public class MulticastServer
         resetTimeout(timeout);
     }
 
+    /**
+     * Sets the value of this servers timeout to the specified value
+     */ 
     private void resetTimeout(int timeout)
     {
         timeoutLock.lock();
@@ -1320,7 +1350,6 @@ public class MulticastServer
         followerStatusMap.clear();
     }
 
-
     public enum ServerState
     {
         LEADER(),
@@ -1350,7 +1379,6 @@ public class MulticastServer
 
     public void consoleError(String s, int which)
     {
-
         if (userConsole != null && serverConsole != null)
         {
             //e stands for error
